@@ -39,7 +39,7 @@ def get_sessions(limit: int = 50, offset: int = 0) -> list[dict]:
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, title, created_at, updated_at, model FROM sessions ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        "SELECT id, title, started_at, ended_at, model FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?"
         (limit, offset),
     ).fetchall()
     conn.close()
@@ -53,7 +53,7 @@ def get_session_messages(session_id: str, limit: int = 100) -> list[dict]:
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, role, content, created_at, tool_calls FROM messages WHERE session_id = ? ORDER BY created_at LIMIT ?",
+        "SELECT id, role, content, timestamp, tool_calls FROM messages WHERE session_id = ? ORDER BY timestamp LIMIT ?",
         (session_id, limit),
     ).fetchall()
     conn.close()
@@ -86,7 +86,7 @@ def search_sessions(q: str, limit: int = 20) -> list[dict]:
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, title, created_at, updated_at FROM sessions WHERE title LIKE ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT id, title, started_at, ended_at FROM sessions WHERE title LIKE ? ORDER BY started_at DESC LIMIT ?"
         (f"%{q}%", limit),
     ).fetchall()
     conn.close()
