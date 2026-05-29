@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { scrollbar-width: thin; scrollbar-color: #4f46e5 #1f2937; }
+  body { @apply bg-gray-950 text-gray-100 antialiased; }
+  ::selection { background: #4f46e5; color: white; }
+}
+
+@layer components {
+  .card { @apply bg-gray-900 border border-gray-800 rounded-xl p-4; }
+  .btn { @apply px-4 py-2 rounded-lg font-medium transition-all duration-150; }
+  .btn-primary { @apply btn bg-hermes-600 hover:bg-hermes-500 text-white; }
+  .btn-ghost { @apply btn hover:bg-gray-800 text-gray-300; }
+  .input { @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-hermes-500 focus:border-transparent; }
+  .badge { @apply px-2 py-0.5 rounded-full text-xs font-medium; }
+  .badge-green { @apply badge bg-green-900/50 text-green-300; }
+  .badge-yellow { @apply badge bg-yellow-900/50 text-yellow-300; }
+  .badge-red { @apply badge bg-red-900/50 text-red-300; }
+  .badge-gray { @apply badge bg-gray-700 text-gray-300; }
+  .sidebar-icon { @apply w-5 h-5; }
+}

@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8643:8643"
+    volumes:
+      - ~/.hermes:/root/.hermes:ro
+    environment:
+      - HERMES_HOME=/root/.hermes
+      - HERMES_API_URL=http://host.docker.internal:8642/v1
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install --silent && npx vite --host 0.0.0.0"
+    restart: unless-stopped

@@ -1,0 +1,37 @@
+const BASE = '/api'
+
+async function api<T>(path: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  })
+  if (!r.ok) {
+    const text = await r.text().catch(() => '')
+    throw new Error(`${r.status}: ${text || r.statusText}`)
+  }
+  return r.json()
+}
+
+export const health = () => api<any>('/system/health')
+export const stats = () => api<any>('/system/stats')
+export const chat = (msg: string, model?: string, sessionId?: string) =>
+  api<any>('/chat/send', { method: 'POST', body: JSON.stringify({ message: msg, model, session_id: sessionId }) })
+export const models = () => api<any>('/chat/models')
+export const getSessions = (limit?: number, offset?: number) => api<any>(`/sessions?limit=${limit || 50}&offset=${offset || 0}`)
+export const searchSessions = (q: string) => api<any>(`/sessions/search?q=${encodeURIComponent(q)}`)
+export const getSession = (id: string) => api<any>(`/sessions/${id}`)
+export const getSkills = () => api<any>('/skills')
+export const getSkill = (name: string) => api<any>(`/skills/${encodeURIComponent(name)}`)
+export const getMemory = (target?: string) => api<any>(`/memory?target=${target || 'memory'}`)
+export const getCron = () => api<any>('/cron')
+export const getConfig = () => api<any>('/config')
+export const putConfig = (data: any) => api<any>('/config', { method: 'PUT', body: JSON.stringify(data) })
+export const getProfiles = () => api<any>('/profiles')
+export const activateProfile = (name: string) =>
+  api<any>(`/profiles/${encodeURIComponent(name)}/activate`, { method: 'POST' })
+export const getTools = () => api<any>('/tools')
+export const getGateway = () => api<any>('/gateway')
+export const getProviders = () => api<any>('/providers')
+export const getKanban = () => api<any>('/kanban')
+export const getLogs = (limit?: number) => api<any>(`/logs?limit=${limit || 100}`)
+export const getPlugins = () => api<any>('/plugins')
