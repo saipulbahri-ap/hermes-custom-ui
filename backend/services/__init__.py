@@ -5,6 +5,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+from typing import Optional
+
 import yaml
 
 from backend.config import HERMES_HOME
@@ -25,7 +27,7 @@ def cli(*args: str) -> tuple[str, int]:
 
 # ── Sessions (SQLite) ──
 
-def state_db_path() -> Path | None:
+def state_db_path() -> Optional[Path]:
     p = HERMES_HOME / "state.db"
     return p if p.exists() else None
 
@@ -125,7 +127,7 @@ def list_skills() -> list[dict]:
     return results
 
 
-def get_skill_content(name: str) -> str | None:
+def get_skill_content(name: str) -> Optional[str]:
     p = HERMES_HOME / "skills" / name / "SKILL.md"
     if p.exists():
         return p.read_text()
