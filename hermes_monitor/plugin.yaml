@@ -1,0 +1,9 @@
+name: hermes-monitor
+version: 1.0.0
+description: "Monitor Hermes agent activity — captures sessions, tool calls, messages and sends to hermes-custom-ui backend for live display."
+author: saipul
+hooks:
+  - on_session_start
+  - on_session_end
+  - pre_tool_call
+  - post_tool_call
