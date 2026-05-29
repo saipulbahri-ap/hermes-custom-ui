@@ -15,6 +15,7 @@ import Providers from './pages/Providers'
 import Kanban from './pages/Kanban'
 import Logs from './pages/Logs'
 import Plugins from './pages/Plugins'
+import Live from './pages/Live'
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/kanban" element={<Kanban />} />
         <Route path="/logs" element={<Logs />} />
         <Route path="/plugins" element={<Plugins />} />
+        <Route path="/live" element={<Live />} />
       </Routes>
     </Layout>
   )

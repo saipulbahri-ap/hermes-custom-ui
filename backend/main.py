@@ -12,6 +12,7 @@ from backend.config import HOST, PORT
 from backend.routers.system import router as system_router
 from backend.routers.chat import router as chat_router
 from backend.routers.hermes import router as hermes_router
+from backend.routers.events import router as events_router
 
 app = FastAPI(title="Hermes Custom UI", version="1.0.0")
 
@@ -25,6 +26,7 @@ app.add_middleware(
 app.include_router(system_router)
 app.include_router(chat_router)
 app.include_router(hermes_router)
+app.include_router(events_router)
 
 
 @app.get("/")

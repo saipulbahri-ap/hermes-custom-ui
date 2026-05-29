@@ -20,6 +20,7 @@ const navItems = [
   { to: '/providers', icon: Cpu, label: 'Providers', short: 'Providers' },
   { to: '/kanban', icon: Columns3, label: 'Kanban', short: 'Kanban' },
   { to: '/logs', icon: FileText, label: 'Logs', short: 'Logs' },
+  { to: '/live', icon: Activity, label: 'Live', short: 'Live' },
   { to: '/plugins', icon: Puzzle, label: 'Plugins', short: 'Plugins' },
 ]
 
