@@ -39,7 +39,7 @@ def get_sessions(limit: int = 50, offset: int = 0) -> list[dict]:
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, title, started_at, ended_at, model FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?"
+        "SELECT id, title, started_at, ended_at, model FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     conn.close()
@@ -86,7 +86,7 @@ def search_sessions(q: str, limit: int = 20) -> list[dict]:
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, title, started_at, ended_at FROM sessions WHERE title LIKE ? ORDER BY started_at DESC LIMIT ?"
+        "SELECT id, title, started_at, ended_at FROM sessions WHERE title LIKE ? ORDER BY started_at DESC LIMIT ?",
         (f"%{q}%", limit),
     ).fetchall()
     conn.close()
