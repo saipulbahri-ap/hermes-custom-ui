@@ -20,8 +20,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <header className="h-11 flex items-center justify-end px-5 bg-gray-900/50 border-b border-gray-800 gap-3 text-xs">
           {h && (
             <>
-              <span className={`inline-block w-2 h-2 rounded-full ${h.api_server ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-gray-400">{h.api_server ? 'API OK' : 'API Down'}</span>
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-gray-400">Backend OK</span>
+              <span className="text-gray-600">|</span>
+              <span className={`inline-block w-2 h-2 rounded-full ${h.api_server ? 'bg-green-500' : 'bg-gray-600'}`} />
+              <span className={h.api_server ? 'text-gray-400' : 'text-gray-500'}>{h.api_server ? 'Hermes API' : 'Hermes Offline'}</span>
               <span className="text-gray-600">|</span>
               <span className="text-gray-400">{h.sessions_count} sessions</span>
               <span className="text-gray-600">|</span>

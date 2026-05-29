@@ -27,7 +27,9 @@ async def health():
         "hermes_home": str(HERMES_HOME),
         "state_db": state_db_path() is not None,
         "config_yaml": (HERMES_HOME / "config.yaml").exists(),
+        "backend": "healthy",
         "api_server": api_ok,
+        "hermes_api": api_ok,
         "sessions_count": count_sessions(),
     }
 
