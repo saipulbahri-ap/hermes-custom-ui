@@ -22,7 +22,7 @@ interface TreeNode {
   children: TreeNode[]
 }
 
-const WS_URL = 'ws://localhost:8643/api/ws'
+const WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/ws`
 
 const eventColors: Record<string, string> = {
   agent_start: 'text-green-400 bg-green-400/10 border-green-400/30',
