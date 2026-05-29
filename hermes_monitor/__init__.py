@@ -28,7 +28,13 @@ def _send_event(event_type: str, agent_id: str, session_id: str, data: dict, par
     }
     try:
         import httpx
-        httpx.post(BACKEND_URL, json=payload, timeout=2)
+        import threading
+        def _do_req():
+            try:
+                httpx.post(BACKEND_URL, json=payload, timeout=2)
+            except Exception:
+                pass
+        threading.Thread(target=_do_req, daemon=True).start()
     except Exception:
         pass  # swallow — monitoring should never block the agent
 

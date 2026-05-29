@@ -75,7 +75,7 @@ export default function Live() {
         const parsed: LiveEvent = JSON.parse(msg.data)
 
         if (parsed.type === '__backlog__') {
-          setEvents(parsed.data?.events || [])
+          setEvents((parsed as any).events || [])
           return
         }
 

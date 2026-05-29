@@ -61,23 +61,26 @@ def _send_http_post(url: str, payload: dict) -> bool:
     headers = {"Content-Type": "application/json"}
 
     if _HAS_REQUESTS:
-        try:
-            resp = _requests.post(url, data=data, headers=headers, timeout=5)
-            resp.raise_for_status()
-            return True
-        except Exception as exc:
-            logger.warning("HermesMonitor: requests POST failed — %s", exc)
-            return False
+        import threading
+        def _do_req():
+            try:
+                _requests.post(url, data=data, headers=headers, timeout=2)
+            except Exception:
+                pass
+        threading.Thread(target=_do_req, daemon=True).start()
+        return True
 
     # urllib fallback
-    try:
-        req = _urllib_request.Request(url, data=data, headers=headers, method="POST")
-        with _urllib_request.urlopen(req, timeout=5) as resp:
-            resp.read()  # drain
-        return True
-    except Exception as exc:
-        logger.warning("HermesMonitor: urllib POST failed — %s", exc)
-        return False
+    import threading
+    def _do_post():
+        try:
+            req = _urllib_request.Request(url, data=data, headers=headers, method="POST")
+            with _urllib_request.urlopen(req, timeout=2) as resp:
+                resp.read()
+        except Exception:
+            pass
+    threading.Thread(target=_do_post, daemon=True).start()
+    return True
 
 
 class HermesMonitorPlugin:
