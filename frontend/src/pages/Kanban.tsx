@@ -85,7 +85,7 @@ export default function Kanban() {
 
   const priorityBadge = (p?: string) => {
     if (!p) return null
-    const cls = {
+    const cls: Record<string, string> = {
       high: 'badge-red',
       medium: 'badge-yellow',
       low: 'badge-gray',
