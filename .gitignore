@@ -6,3 +6,5 @@ __pycache__/
 .env.local
 *.egg-info/
 .venv/
+*.tsbuildinfo
+package-lock.json
