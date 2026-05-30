@@ -280,27 +280,65 @@ def list_cron_jobs() -> list[dict]:
     # Fallback: parse text output
     out, _ = cli("cron", "list")
     jobs = []
+    # Output format: ASCII table with blocks separated by blank lines
+    # Each block starts with job_id [status] then Name:, Schedule:, etc.
+    current_job = {}
     for line in out.strip().split("\n"):
         stripped = line.strip()
         if not stripped:
+            if current_job.get("id"):
+                jobs.append(_finalize_cron_job(current_job))
+                current_job = {}
             continue
-        # Skip informational/help text lines
-        if any(stripped.startswith(p) for p in ("No ", "ID", "Create", "Usage", "Use ")):
+        # Skip decorative lines (box drawing, headers)
+        if stripped.startswith(("┌", "└", "│", "─", "━")):
             continue
-        parts = line.split(None, 3)
-        job = {"id": "", "name": "", "schedule": "", "status": ""}
-        if len(parts) >= 1:
-            job["id"] = parts[0]
-        if len(parts) >= 2:
-            job["name"] = parts[1]
-        if len(parts) >= 3:
-            job["schedule"] = parts[2]
-        if len(parts) >= 4:
-            job["status"] = parts[3]
-        else:
-            job["status"] = "active"
-        jobs.append(job)
+        if stripped.startswith(("No ", "Create", "Usage", "Use ")):
+            continue
+        # Job line: "f20c9b3f5f8d [active]" or just "f20c9b3f5f8d"
+        if "Name:" not in stripped and "Schedule:" not in stripped and "Next" not in stripped and "Repeat:" not in stripped and "Deliver:" not in stripped and "Prompt" not in stripped:
+            # This is likely the job ID line
+            parts = stripped.split()
+            if parts and not current_job.get("id"):
+                job_id = parts[0]
+                status_val = ""
+                if len(parts) >= 2:
+                    status_val = parts[1].strip("[]")
+                current_job = {"id": job_id, "status": status_val or "active"}
+                continue
+        # Key-value lines: "Name: test-ui", "Schedule: every 360m"
+        if ":" in stripped:
+            key, _, val = stripped.partition(":")
+            key = key.strip().lower()
+            val = val.strip()
+            if key == "name":
+                current_job["name"] = val
+            elif key == "schedule":
+                current_job["schedule"] = val
+            elif key == "status":
+                current_job["status"] = val
+            elif key == "next run":
+                current_job["next_run"] = val
+            elif key == "repeat":
+                current_job["repeat"] = val
+            elif key == "deliver":
+                current_job["deliver"] = val
+    if current_job.get("id"):
+        jobs.append(_finalize_cron_job(current_job))
     return jobs
+
+
+def _finalize_cron_job(job: dict) -> dict:
+    """Ensure all fields present in cron job dict."""
+    return {
+        "id": job.get("id", ""),
+        "name": job.get("name", ""),
+        "schedule": job.get("schedule", ""),
+        "status": job.get("status", "active"),
+        "next_run": job.get("next_run", ""),
+        "repeat": job.get("repeat", ""),
+        "deliver": job.get("deliver", ""),
+    }
 
 
 def _normalize_cron_job(j: dict) -> dict:
