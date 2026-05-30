@@ -315,7 +315,8 @@ def _normalize_cron_job(j: dict) -> dict:
 
 def cron_create(name: str, schedule: str, prompt: str) -> dict:
     """Create a cron job via CLI. Returns dict with job info or error."""
-    out, code = cli("cron", "create", "--name", name, "--schedule", schedule, "--prompt", prompt)
+    # hermes cron create <schedule> [prompt] --name X
+    out, code = cli("cron", "create", schedule, prompt, "--name", name)
     if code == 0:
         # Try to parse JSON output
         try:
