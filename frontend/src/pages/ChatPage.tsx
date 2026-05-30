@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Plus, MessageSquare } from 'lucide-react'
+import { Send, Loader2, Plus, MessageSquare, Cpu } from 'lucide-react'
 import { chat, models } from '../lib/api'
 
 interface ChatMsg {
@@ -14,14 +14,32 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | undefined>()
   const [modelList, setModelList] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState('')
+  const [error, setError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     models().then((res) => {
-      const list: string[] = res?.models || res?.data || []
+      // Handle various response formats
+      let list: string[] = []
+      if (Array.isArray(res)) {
+        list = res.map((m: any) => typeof m === 'string' ? m : (m.id || m.name || m.model || ''))
+      } else if (res && typeof res === 'object') {
+        const raw = res.models || res.data || res.providers || []
+        if (Array.isArray(raw)) {
+          list = raw.map((m: any) => typeof m === 'string' ? m : (m.id || m.name || m.model || ''))
+        }
+      }
+      list = list.filter(Boolean)
+      if (list.length === 0) {
+        // Default models
+        list = ['openrouter/owl-alpha', 'openrouter/deepseek/deepseek-chat']
+      }
       setModelList(list)
       if (list.length && !selectedModel) setSelectedModel(list[0])
-    }).catch(() => {})
+    }).catch(() => {
+      setModelList(['openrouter/owl-alpha'])
+      setSelectedModel('openrouter/owl-alpha')
+    })
   }, [])
 
   useEffect(() => {
@@ -32,14 +50,16 @@ export default function ChatPage() {
     const text = input.trim()
     if (!text || sending) return
     setInput('')
+    setError('')
     setMessages((m) => [...m, { role: 'user', content: text }])
     setSending(true)
     try {
       const res = await chat(text, selectedModel || undefined, sessionId)
-      const reply = res?.reply || res?.message || res?.response || JSON.stringify(res)
+      const reply = res?.reply || res?.message || res?.response || res?.content || JSON.stringify(res)
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
       if (res?.session_id) setSessionId(res.session_id)
     } catch (e: any) {
+      setError(e.message)
       setMessages((m) => [...m, { role: 'assistant', content: `Error: ${e.message}` }])
     } finally {
       setSending(false)
@@ -49,11 +69,11 @@ export default function ChatPage() {
   const newChat = () => {
     setMessages([])
     setSessionId(undefined)
+    setError('')
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-hermes-300">Chat</h1>
@@ -61,15 +81,18 @@ export default function ChatPage() {
         </div>
         <div className="flex items-center gap-2">
           {modelList.length > 0 && (
-            <select
-              className="input text-xs max-w-[160px]"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-            >
-              {modelList.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <Cpu className="w-4 h-4 text-gray-500" />
+              <select
+                className="input text-xs max-w-[200px]"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+              >
+                {modelList.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           )}
           <button onClick={newChat} className="btn-ghost text-xs flex items-center gap-1">
             <Plus className="w-4 h-4" /> New
@@ -77,14 +100,19 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Messages */}
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-red-900/30 border border-red-800 text-red-300 text-xs">
+          {error}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageSquare className="w-12 h-12 mb-3 text-gray-700" />
             <p className="text-sm">Start a conversation with Hermes</p>
             <p className="text-xs text-gray-600 mt-1">
-              {modelList.length ? `Model: ${selectedModel || 'default'}` : 'Loading models...'}
+              Model: {selectedModel || 'default'}
             </p>
           </div>
         )}
@@ -114,7 +142,6 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="flex gap-2">
         <input
           className="input flex-1"

@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   History, Search, Clock, MessageSquare,
-  ChevronRight, RefreshCw,
+  ChevronRight, RefreshCw, Trash2,
 } from 'lucide-react'
-import { getSessions, searchSessions, getSession } from '../lib/api'
+import { getSessions, searchSessions, getSession, deleteSession } from '../lib/api'
 
 interface Session {
   id: string
   title?: string
+  started_at?: string
+  ended_at?: string
   created_at?: string
   updated_at?: string
-  message_count?: number
   model?: string
-  status?: string
 }
 
 export default function Sessions() {
@@ -30,18 +30,18 @@ export default function Sessions() {
       const res = search.trim()
         ? await searchSessions(search)
         : await getSessions(50, 0)
-      const list = res?.sessions || res?.data || res || []
+      // Handle various response formats
+      const list = Array.isArray(res) ? res : (res?.sessions || res?.data || res?.results || [])
       setSessions(Array.isArray(list) ? list : [])
-    } catch {
+    } catch (e) {
+      console.error('Sessions fetch error:', e)
       setSessions([])
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchSessions()
-  }, [])
+  useEffect(() => { fetchSessions() }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,17 +55,31 @@ export default function Sessions() {
     try {
       const res = await getSession(s.id)
       setDetail(res)
-    } catch {
+    } catch (e) {
+      console.error('Session detail error:', e)
       setDetail(null)
     } finally {
       setDetailLoading(false)
     }
   }
 
+  const handleDelete = async (s: Session) => {
+    if (!confirm(`Delete session "${s.title || s.id.slice(0, 8)}"?`)) return
+    try {
+      await deleteSession(s.id)
+      if (selected?.id === s.id) setSelected(null)
+      fetchSessions()
+    } catch (e: any) {
+      alert(e.message)
+    }
+  }
+
   const fmtDate = (d?: string) => {
     if (!d) return '-'
-    return new Date(d).toLocaleString()
+    try { return new Date(d).toLocaleString() } catch { return d }
   }
+
+  const msgCount = selected ? (detail?.messages || detail?.message_count || 0) : 0
 
   return (
     <div className="flex gap-4 h-full">
@@ -74,14 +88,13 @@ export default function Sessions() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-hermes-300">Sessions</h1>
-            <p className="text-sm text-gray-400">Conversation history</p>
+            <p className="text-sm text-gray-400">{sessions.length} conversation{sessions.length !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={fetchSessions} className="btn-ghost p-2" title="Refresh">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
-        {/* Search */}
         <form onSubmit={handleSearch} className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -94,10 +107,9 @@ export default function Sessions() {
           </div>
         </form>
 
-        {/* Session List */}
         <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
           {loading && sessions.length === 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-y">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="card h-16 animate-pulse bg-gray-800/50" />
               ))}
@@ -108,44 +120,52 @@ export default function Sessions() {
               <p className="text-sm">No sessions found</p>
             </div>
           ) : (
-            sessions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => openDetail(s)}
-                className={`card w-full text-left flex items-center gap-3 hover:border-hermes-500/30 transition-colors ${
-                  selected?.id === s.id ? 'border-hermes-500/50' : ''
-                }`}
-              >
-                <MessageSquare className="w-5 h-5 text-gray-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <Link
-                    to={`/sessions/${s.id}`}
-                    className="text-sm font-medium text-gray-200 truncate hover:text-hermes-400 transition-colors block"
-                    onClick={(e) => e.stopPropagation()}
+            sessions.map((s) => {
+              const date = s.updated_at || s.started_at || s.created_at
+              return (
+                <div
+                  key={s.id}
+                  className={`card w-full flex items-center gap-3 hover:border-hermes-500/30 transition-colors ${
+                    selected?.id === s.id ? 'border-hermes-500/50' : ''
+                  }`}
+                >
+                  <button onClick={() => openDetail(s)} className="flex-1 flex items-center gap-3 text-left min-w-0">
+                    <MessageSquare className="w-5 h-5 text-gray-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={`/sessions/${s.id}`}
+                        className="text-sm font-medium text-gray-200 truncate hover:text-hermes-400 transition-colors block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {s.title || `Session ${s.id.slice(0, 8)}`}
+                      </Link>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {fmtDate(date)}
+                        </span>
+                        {s.model && <span className="badge-gray">{s.model}</span>}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s)}
+                    className="p-1.5 text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                    title="Delete session"
                   >
-                    {s.title || `Session ${s.id.slice(0, 8)}`}
-                  </Link>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {fmtDate(s.updated_at || s.created_at)}
-                    </span>
-                    {s.message_count !== undefined && (
-                      <span>{s.message_count} msgs</span>
-                    )}
-                    {s.model && <span className="badge-gray">{s.model}</span>}
-                  </div>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-              </button>
-            ))
+              )
+            })
           )}
         </div>
       </div>
 
       {/* Detail */}
       {selected && (
-        <div className="w-1/2 border-l border-gray-800 pl-4">
+        <div className="w-1/2 border-l border-gray-800 pl-4 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-200 truncate">
               {selected.title || `Session ${selected.id.slice(0, 8)}`}
@@ -158,13 +178,15 @@ export default function Sessions() {
               <p className="text-gray-400">ID</p>
               <p className="text-gray-200 font-mono text-xs break-all">{selected.id}</p>
             </div>
-            <div className="card space-y-1">
-              <p className="text-gray-400">Created</p>
-              <p className="text-gray-200">{fmtDate(selected.created_at)}</p>
-            </div>
-            <div className="card space-y-1">
-              <p className="text-gray-400">Updated</p>
-              <p className="text-gray-200">{fmtDate(selected.updated_at)}</p>
+            <div className="flex gap-3">
+              <div className="card space-y-1 flex-1">
+                <p className="text-gray-400">Started</p>
+                <p className="text-gray-200 text-xs">{fmtDate(selected.started_at)}</p>
+              </div>
+              <div className="card space-y-1 flex-1">
+                <p className="text-gray-400">Ended</p>
+                <p className="text-gray-200 text-xs">{fmtDate(selected.ended_at)}</p>
+              </div>
             </div>
             {selected.model && (
               <div className="card space-y-1">
@@ -172,35 +194,42 @@ export default function Sessions() {
                 <p className="text-gray-200">{selected.model}</p>
               </div>
             )}
-            {selected.message_count !== undefined && (
-              <div className="card space-y-1">
-                <p className="text-gray-400">Messages</p>
-                <p className="text-gray-200">{selected.message_count}</p>
-              </div>
-            )}
 
             {detailLoading && (
               <div className="flex items-center gap-2 text-gray-500 text-sm">
-                <RefreshCw className="w-4 h-4 animate-spin" /> Loading detail...
+                <RefreshCw className="w-4 h-4 animate-spin" /> Loading messages...
               </div>
             )}
 
-            {detail?.messages && (
+            {detail?.messages && detail.messages.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Messages ({detail.messages.length})
                 </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {detail.messages.slice(-20).map((m: any, i: number) => (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {detail.messages.map((m: any, i: number) => (
                     <div key={i} className="card text-xs">
-                      <span className="font-semibold text-hermes-400">{m.role || '?'}:</span>{' '}
+                      <span className={`font-semibold ${m.role === 'user' ? 'text-blue-400' : m.role === 'assistant' ? 'text-hermes-400' : 'text-gray-400'}`}>
+                        {m.role || '?'}:
+                      </span>{' '}
                       <span className="text-gray-300">
-                        {(m.content || '').slice(0, 200)}
-                        {(m.content || '').length > 200 ? '...' : ''}
+                        {(m.content || '').slice(0, 300)}
+                        {(m.content || '').length > 300 ? '...' : ''}
                       </span>
+                      {m.tool_calls && (
+                        <div className="mt-1 text-purple-400">
+                          🔧 {Array.isArray(m.tool_calls) ? m.tool_calls.length + ' tool call(s)' : 'tool_call'}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {detail && !detailLoading && (!detail.messages || detail.messages.length === 0) && (
+              <div className="text-gray-500 text-sm text-center py-4">
+                No messages in this session
               </div>
             )}
           </div>

@@ -38,10 +38,26 @@ def get_sessions(limit: int = 50, offset: int = 0) -> list[dict]:
         return []
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        "SELECT id, title, started_at, ended_at, model FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?",
-        (limit, offset),
-    ).fetchall()
+    # Detect columns
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+    select_cols = ["id"]
+    if "title" in cols:
+        select_cols.append("title")
+    if "started_at" in cols:
+        select_cols.append("started_at")
+    if "ended_at" in cols:
+        select_cols.append("ended_at")
+    if "model" in cols:
+        select_cols.append("model")
+    if "created_at" in cols:
+        select_cols.append("created_at")
+    if "updated_at" in cols:
+        select_cols.append("updated_at")
+    
+    order_col = "started_at" if "started_at" in cols else ("created_at" if "created_at" in cols else "id")
+    
+    query = f"SELECT {', '.join(select_cols)} FROM sessions ORDER BY {order_col} DESC LIMIT ? OFFSET ?"
+    rows = conn.execute(query, (limit, offset)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -52,15 +68,26 @@ def get_session_messages(session_id: str, limit: int = 100) -> list[dict]:
         return []
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        "SELECT id, role, content, timestamp, tool_calls FROM messages WHERE session_id = ? ORDER BY timestamp LIMIT ?",
-        (session_id, limit),
-    ).fetchall()
+    # Detect available columns
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()]
+    # Build query dynamically based on available columns
+    select_cols = ["id", "role", "content"]
+    if "tool_calls" in cols:
+        select_cols.append("tool_calls")
+    if "created_at" in cols:
+        select_cols.append("created_at")
+    elif "timestamp" in cols:
+        select_cols.append("timestamp")
+    
+    order_col = "created_at" if "created_at" in cols else ("timestamp" if "timestamp" in cols else "id")
+    
+    query = f"SELECT {', '.join(select_cols)} FROM messages WHERE session_id = ? ORDER BY {order_col} LIMIT ?"
+    rows = conn.execute(query, (session_id, limit)).fetchall()
     conn.close()
     msgs = []
     for r in rows:
         d = dict(r)
-        if d["tool_calls"]:
+        if d.get("tool_calls"):
             try:
                 d["tool_calls"] = json.loads(d["tool_calls"])
             except (json.JSONDecodeError, TypeError):
@@ -73,10 +100,13 @@ def count_sessions() -> int:
     db = state_db_path()
     if not db:
         return 0
-    conn = sqlite3.connect(str(db))
-    c = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
-    conn.close()
-    return c
+    try:
+        conn = sqlite3.connect(str(db))
+        c = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+        conn.close()
+        return c
+    except Exception:
+        return 0
 
 
 def search_sessions(q: str, limit: int = 20) -> list[dict]:
@@ -85,10 +115,26 @@ def search_sessions(q: str, limit: int = 20) -> list[dict]:
         return []
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
-        "SELECT id, title, started_at, ended_at FROM sessions WHERE title LIKE ? ORDER BY started_at DESC LIMIT ?",
-        (f"%{q}%", limit),
-    ).fetchall()
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()]
+    select_cols = ["id"]
+    if "title" in cols:
+        select_cols.append("title")
+    if "started_at" in cols:
+        select_cols.append("started_at")
+    if "ended_at" in cols:
+        select_cols.append("ended_at")
+    order_col = "started_at" if "started_at" in cols else ("created_at" if "created_at" in cols else "id")
+    
+    if "title" in cols:
+        rows = conn.execute(
+            f"SELECT {', '.join(select_cols)} FROM sessions WHERE title LIKE ? ORDER BY {order_col} DESC LIMIT ?",
+            (f"%{q}%", limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            f"SELECT {', '.join(select_cols)} FROM sessions ORDER BY {order_col} DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -100,23 +146,34 @@ def list_skills() -> list[dict]:
     if not skills_dir.exists():
         return []
     results = []
-    for f in sorted(skills_dir.iterdir()):
-        skill_md = f / "SKILL.md" if f.is_dir() else f
-        if not skill_md.exists():
-            continue
+    # Scan all SKILL.md files recursively
+    for skill_md in sorted(skills_dir.rglob("SKILL.md")):
+        # Determine skill name from directory structure
+        rel = skill_md.relative_to(skills_dir)
+        if len(rel.parts) == 1:
+            # Top-level SKILL.md (unusual but possible)
+            name = skill_md.parent.name
+            cat = None
+        else:
+            # Subdirectory: first part is category, second is skill name
+            name = rel.parts[-2]  # parent dir name
+            cat = rel.parts[0] if len(rel.parts) > 1 else None
+        
         content = skill_md.read_text()
         desc = ""
-        cat = None
-        linked = []
         for line in content.split("\n"):
             if line.startswith("description:"):
                 desc = line.split(":", 1)[1].strip().strip('"')
-            elif line.startswith("category:"):
-                cat = line.split(":", 1)[1].strip().strip('"')
-        if f.is_dir():
-            linked = [str(p.relative_to(f)) for p in f.iterdir() if p.name != "SKILL.md"]
+                break
+        
+        linked = []
+        skill_dir = skill_md.parent
+        for p in skill_dir.iterdir():
+            if p.name != "SKILL.md":
+                linked.append(str(p.relative_to(skill_dir)))
+        
         results.append({
-            "name": f.name,
+            "name": name,
             "description": desc,
             "category": cat,
             "path": str(skill_md),
@@ -128,12 +185,19 @@ def list_skills() -> list[dict]:
 
 
 def get_skill_content(name: str) -> Optional[str]:
-    p = HERMES_HOME / "skills" / name / "SKILL.md"
+    skills_dir = HERMES_HOME / "skills"
+    # Try direct match: skills/name/SKILL.md
+    p = skills_dir / name / "SKILL.md"
     if p.exists():
         return p.read_text()
-    p2 = HERMES_HOME / "skills" / f"{name}.md"
+    # Try as file: skills/name.md
+    p2 = skills_dir / f"{name}.md"
     if p2.exists():
         return p2.read_text()
+    # Try finding in subdirectories
+    for skill_md in skills_dir.rglob("SKILL.md"):
+        if skill_md.parent.name == name:
+            return skill_md.read_text()
     return None
 
 
@@ -539,19 +603,42 @@ def list_logs(limit: int = 100) -> list[str]:
 # ── Tools ──
 
 def get_tools_info() -> list[dict]:
-    out, _ = cli("tools", "list")
+    """Return available tools. Tries CLI first, falls back to static list."""
+    out, code = cli("tools", "list")
     tools = []
     current_set = "default"
-    for line in out.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("Toolset"):
-            current_set = line.split(":", 1)[1].strip() if ":" in line else "unknown"
-        elif line.startswith("- "):
-            name = line[2:].split(":")[0].split("—")[0].strip()
-            desc = line[2:].split(":", 1)[1].strip() if ":" in line[2:] else line[2:]
-            tools.append({"name": name, "description": desc, "toolset": current_set})
+    
+    if code == 0 and out.strip():
+        for line in out.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("Toolset"):
+                current_set = line.split(":", 1)[1].strip() if ":" in line else "unknown"
+            elif line.startswith("- "):
+                name = line[2:].split(":")[0].split("—")[0].strip()
+                desc = ""
+                if ":" in line[2:]:
+                    desc = line[2:].split(":", 1)[1].strip()
+                elif "—" in line[2:]:
+                    desc = line[2:].split("—", 1)[1].strip()
+                tools.append({"name": name, "description": desc, "toolset": current_set})
+    
+    if not tools:
+        # Fallback: return known built-in tools
+        tools = [
+            {"name": "web_search", "description": "Search the web", "toolset": "web"},
+            {"name": "web_fetch", "description": "Fetch web page content", "toolset": "web"},
+            {"name": "terminal", "description": "Execute shell commands", "toolset": "terminal"},
+            {"name": "read_file", "description": "Read file contents", "toolset": "file"},
+            {"name": "write_file", "description": "Write file contents", "toolset": "file"},
+            {"name": "browser_navigate", "description": "Navigate browser", "toolset": "browser"},
+            {"name": "image_generate", "description": "Generate images", "toolset": "image_gen"},
+            {"name": "cronjob", "description": "Manage cron jobs", "toolset": "cronjob"},
+            {"name": "memory", "description": "Persistent memory", "toolset": "memory"},
+            {"name": "session_search", "description": "Search sessions", "toolset": "session_search"},
+        ]
+    
     return tools
 
 
@@ -577,7 +664,6 @@ def get_providers() -> list[dict]:
     # 2. Check model.provider (primary provider string)
     primary = model_cfg.get("provider", "")
     if primary:
-        # Check if already in result from fallback
         if not any(r["name"] == primary for r in result):
             result.insert(0, {
                 "name": primary,
@@ -585,8 +671,8 @@ def get_providers() -> list[dict]:
                 "api_base": model_cfg.get("base_url", ""),
             })
 
-    # 3. Check root-level providers dict (legacy)
-    providers_dict = cfg.get("providers", {})
+    # 3. Check model.providers dict
+    providers_dict = model_cfg.get("providers", {})
     if isinstance(providers_dict, dict):
         for name, info in providers_dict.items():
             if isinstance(info, dict):
@@ -597,6 +683,32 @@ def get_providers() -> list[dict]:
                 })
             else:
                 result.append({"name": name, "model": str(info), "api_base": ""})
+
+    # 4. Check root-level providers dict (legacy)
+    root_providers = cfg.get("providers", {})
+    if isinstance(root_providers, dict):
+        for name, info in root_providers.items():
+            if not any(r["name"] == name for r in result):
+                if isinstance(info, dict):
+                    result.append({
+                        "name": name,
+                        "model": info.get("model", ""),
+                        "api_base": info.get("api_base", ""),
+                    })
+                else:
+                    result.append({"name": name, "model": str(info), "api_base": ""})
+
+    # 5. Also check fallback_providers key
+    fb2 = model_cfg.get("fallback_providers", [])
+    for p in fb2:
+        if isinstance(p, dict):
+            pname = p.get("provider", p.get("name", ""))
+            if not any(r["name"] == pname for r in result):
+                result.append({
+                    "name": pname,
+                    "model": p.get("model", ""),
+                    "api_base": p.get("base_url", p.get("api_base", "")),
+                })
 
     return result
 

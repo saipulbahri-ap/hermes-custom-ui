@@ -3,12 +3,42 @@ import os
 from fastapi import HTTPException, status, Depends
 from fastapi.security import APIKeyHeader
 
-def _load_api_key():
-    """Load UI_API_KEY from environment, return empty string if not set."""
+
+def _load_api_key() -> str:
+    """Load UI_API_KEY from environment. Checks multiple sources.
+    
+    Priority:
+    1. OS environment variable (set by PM2 / docker / shell)
+    2. HERMES_HOME/.env file (key=val format, key must be UI_API_KEY)
+    
+    Returns empty string if not found anywhere (auth disabled).
+    """
+    # 1. Check OS environment first
     env = os.environ
     key_name = "UI" + "_API" + "_KEY"
-    if key_name in env:
-        return env[key_name]
+    val = env.get(key_name, "")
+    if val:
+        return val
+
+    # 2. Try reading from HERMES_HOME/.env directly
+    #    (avoids python-dotenv which may cache old values)
+    try:
+        from backend.config import HERMES_HOME
+        env_path = HERMES_HOME / ".env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    k, _, v = line.partition("=")
+                    if k.strip() == key_name:
+                        v = v.strip().strip("'\"")
+                        if v:
+                            return v
+    except Exception:
+        pass
+
     return ""
 
 
