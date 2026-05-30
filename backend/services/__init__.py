@@ -348,13 +348,19 @@ def _read_memory_entries(path: Path) -> list[dict]:
 def list_memory(target: str = "memory") -> list[dict]:
     """Return memory entries by reading directly from MEMORY.md or USER.md.
     
-    target='memory' → reads ~/.hermes/MEMORY.md
-    target='user'   → reads ~/.hermes/USER.md
+    target='memory' → reads ~/.hermes/memories/MEMORY.md
+    target='user'   → reads ~/.hermes/memories/USER.md
     """
     if target == "user":
-        path = HERMES_HOME / "USER.md"
+        path = HERMES_HOME / "memories" / "USER.md"
     else:
-        path = HERMES_HOME / "MEMORY.md"
+        path = HERMES_HOME / "memories" / "MEMORY.md"
+    # Fallback: try root-level if memories/ doesn't exist
+    if not path.exists():
+        if target == "user":
+            path = HERMES_HOME / "USER.md"
+        else:
+            path = HERMES_HOME / "MEMORY.md"
     return _read_memory_entries(path)
 
 
@@ -416,15 +422,46 @@ def get_tools_info() -> list[dict]:
 # ── Providers ──
 
 def get_providers() -> list[dict]:
+    """Return providers from config. Handles multiple config structures."""
     cfg = read_config()
-    providers = cfg.get("providers", {})
     result = []
-    for name, info in providers.items():
-        result.append({
-            "name": name,
-            "model": info.get("model", info.get("default_model", "")),
-            "api_base": info.get("api_base", ""),
-        })
+
+    # 1. Check model.fallback array (current bravo-dev structure)
+    model_cfg = cfg.get("model", {})
+    fallback = model_cfg.get("fallback", [])
+    if isinstance(fallback, list):
+        for p in fallback:
+            if isinstance(p, dict):
+                result.append({
+                    "name": p.get("provider", p.get("name", "")),
+                    "model": p.get("model", ""),
+                    "api_base": p.get("base_url", p.get("api_base", "")),
+                })
+
+    # 2. Check model.provider (primary provider string)
+    primary = model_cfg.get("provider", "")
+    if primary:
+        # Check if already in result from fallback
+        if not any(r["name"] == primary for r in result):
+            result.insert(0, {
+                "name": primary,
+                "model": model_cfg.get("default", ""),
+                "api_base": model_cfg.get("base_url", ""),
+            })
+
+    # 3. Check root-level providers dict (legacy)
+    providers_dict = cfg.get("providers", {})
+    if isinstance(providers_dict, dict):
+        for name, info in providers_dict.items():
+            if isinstance(info, dict):
+                result.append({
+                    "name": name,
+                    "model": info.get("model", info.get("default_model", "")),
+                    "api_base": info.get("api_base", ""),
+                })
+            else:
+                result.append({"name": name, "model": str(info), "api_base": ""})
+
     return result
 
 

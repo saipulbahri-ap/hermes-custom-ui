@@ -39,8 +39,11 @@ async def stats():
     cfg = read_config()
     providers_cfg = cfg.get("providers", {})
     if not providers_cfg:
-        # Also check model.providers
         providers_cfg = cfg.get("model", {}).get("providers", {})
+    # Also count model.fallback providers
+    fallback_count = len(cfg.get("model", {}).get("fallback", []))
+    primary_count = 1 if cfg.get("model", {}).get("provider") else 0
+    provider_count = max(len(providers_cfg), fallback_count + primary_count)
     profiles_dir = HERMES_HOME / "profiles"
     skills_dir = HERMES_HOME / "skills"
     
@@ -72,7 +75,7 @@ async def stats():
         pass
 
     return {
-        "providers": len(providers_cfg),
+        "providers": provider_count,
         "active_profiles": len([d for d in profiles_dir.iterdir() if d.is_dir()]) if profiles_dir.exists() else 0,
         "active_skills": len(list(skills_dir.iterdir())) if skills_dir.exists() else 0,
         "sessions_count": count_sessions(),
