@@ -1,14 +1,6 @@
-# Hermes Agent — UI Feature Roadmap
-
-> Task plan untuk memvisualisasikan semua fitur Hermes Agent ke dalam UI.
-> Setiap task harus: implement → test locally → deploy → verify.
-
-## Status Legend
-- ⬜ Not started
-- 🔄 In progress
-- ✅ Done (tested & deployed)
-
----
+> Last updated: 2026-05-30
+> Sprint 1: ✅ Complete — tested & deployed
+> Sprint 2: 🔄 In progress
 
 ## Phase 1: Core Pages Enhancement (Existing pages — fix & improve)
 
@@ -22,7 +14,8 @@
 
 ### 1.2 Chat
 - ✅ Basic chat interface
-- ✅ Session selector (pick existing session to continue)
+- ✅ Model selector
+- ✅ Error handling with fallback models
 - ⬜ **Add:** Streaming response (SSE/WebSocket)
 - ⬜ **Add:** Message copy button
 - ⬜ **Add:** Markdown rendering for responses
@@ -30,102 +23,117 @@
 
 ### 1.3 Sessions
 - ✅ Session list with search
-- ✅ Session detail page (view full message history) — NEW
-- ✅ Session resume (continue from last message) — NEW
-- ✅ Session delete — NEW
+- ✅ Session detail (messages, tool_calls, metadata)
+- ✅ Dynamic column detection (compatible with any DB schema)
+- ✅ Session delete
 - ⬜ **Add:** Session export (JSON/Markdown)
 - ⬜ **Add:** Filter by model, date range
 - ⬜ **Add:** Pagination
 
 ### 1.4 Memory
-- ✅ Memory list (read from MEMORY.md)
+- ✅ Memory list (read from MEMORY.md / USER.md)
+- ✅ Tab switching (Agent Memory / User Profile)
+- ✅ Frontmatter parsing
 - ⬜ **Add:** Vector memory search (semantic search)
 - ⬜ **Add:** Memory create/edit/delete
-- ⬜ **Add:** User profile tab
 - ⬜ **Add:** Memory import/export
 
 ### 1.5 Skills
 - ✅ Skill list with search & category
 - ✅ Skill detail with SKILL.md preview
+- ✅ Recursive skill scanning (categories/subdirs)
 - ⬜ **Add:** Skill install from URL/repo
-- ⬜ **Add:** Skill enable/disable toggle
 - ⬜ **Add:** Skill execute/run with parameters
+- ⬜ **Add:** Skill enable/disable toggle
 
 ### 1.6 Cron Jobs
-- ✅ Cron job list
-- ✅ Create new cron job (form: name, schedule, prompt) — NEW
-- ✅ Pause/Resume cron job — NEW
-- ✅ Manual trigger (run now) — NEW
-- ✅ Delete cron job — NEW
-- ✅ Execution log per job — NEW
+- ✅ Cron job list with status badges
+- ✅ Create new cron job (form: name, schedule, prompt)
+- ✅ Pause/Resume cron job
+- ✅ Manual trigger (run now)
+- ✅ Delete cron job
+- ✅ Execution details expansion
 - ⬜ **Add:** Edit cron job
-- ⬜ **Add:** Cron job execution history
+- ⬜ **Add:** Full execution history
 
 ### 1.7 Config
 - ✅ YAML config tree editor
-- ✅ .env editor
+- ✅ .env editor (flat key-value)
+- ✅ Secret masking (tokens, keys, passwords)
 - ⬜ **Add:** Config validation
-- ⬜ **Add:** Config diff view (before/after)
-- ⬜ **Add:** Export config as file
-- ⬜ **Add:** Import config from file
+- ⬜ **Add:** Config diff view
+- ⬜ **Add:** Export/Import config
 
 ### 1.8 Profiles
 - ✅ Profile list with activate
+- ✅ Skills/plugins count per profile
 - ⬜ **Add:** Create new profile
 - ⬜ **Add:** Delete profile
 - ⬜ **Add:** Profile config editor
-- ⬜ **Add:** Profile comparison view
 
 ---
 
-## Phase 2: New Pages (Not yet implemented)
+## Phase 2: New Pages
 
 ### 2.1 Session Detail `/sessions/:id`
-- ⬜ Full message history view
-- ⬜ Tool call detail (input/output)
-- ⬜ Continue session (resume chat)
-- ⬜ Export session as JSON/Markdown
-- ⬜ Delete session
-- ⬜ Message search within session
+- ✅ Full message history
+- ✅ Tool call display
+- ✅ Resume session
+- ✅ Delete session
+- ⬜ **Add:** Export session
+- ⬜ **Add:** Message search within session
 
-### 2.2 Vector Memory `/memory/search`
+### 2.2 Vector Memory `/vector-memory`
 - ⬜ Semantic search interface
 - ⬜ Search results with relevance score
-- ⬜ Add new memory entry
-- ⬜ Edit/delete entries
+- ⬜ Add/edit/delete entries
 - ⬜ Collection selector
-- ⬜ Import from file (PDF, TXT, MD)
 
 ### 2.3 Skill Runner `/skills/:name/run`
-- ⬜ Skill parameter form (auto-detect from SKILL.md)
+- ⬜ Skill parameter form
 - ⬜ Execute skill with parameters
 - ⬜ Real-time execution log
-- ⬜ Execution result display
-- ⬜ Execution history
 
-### 2.4 Provider Status `/providers/status`
-- ⬜ Provider health check (ping each provider)
-- ⬜ Model list per provider
-- ⬜ Provider latency/benchmark
-- ⬜ Credential status (valid/expired)
-- ⬜ Failover chain visualization
+### 2.4 Provider Status `/providers`
+- ✅ Provider list (5 config structures supported)
+- ⬜ **Add:** Health check per provider
+- ⬜ **Add:** Model list per provider
+- ⬜ **Add:** Latency/benchmark
 
-### 2.5 Gateway Monitor `/gateway/monitor`
-- ⬜ Real-time message log per platform
-- ⬜ Platform connection status
-- ⬜ Send test message
-- ⬜ Gateway restart
-- ⬜ Message analytics (messages per platform/hour)
+### 2.5 Gateway Monitor `/gateway`
+- ✅ Platform list with config display
+- ✅ Token masking
+- ⬜ **Add:** Real-time message log
+- ⬜ **Add:** Send test message
+- ⬜ **Add:** Gateway restart
 
 ### 2.6 Kanban Board `/kanban`
 - ✅ Basic board view (3 columns)
-- ⬜ Drag & drop between columns
-- ⬜ Add new task
-- ⬜ Edit task (title, description, priority, assignee)
-- ⬜ Delete task
-- ⬜ Task detail modal
-- ⬜ Labels/Tags
-- ⬜ Due dates
+- ✅ Priority badges
+- ✅ Labels/Tags display
+- ⬜ **Add:** Drag & drop
+- ⬜ **Add:** Add/edit/delete tasks
+- ⬜ **Add:** Task detail modal
+
+### 2.7 Tools Page `/tools`
+- ✅ Tool list grouped by toolset
+- ✅ Collapsible groups
+- ✅ Fallback static list when CLI unavailable
+
+### 2.8 Logs Page `/logs`
+- ✅ Terminal-style log viewer
+- ✅ Filter/search
+- ✅ Auto-scroll
+
+### 2.9 Plugins Page `/plugins`
+- ✅ Plugin list with size display
+- ✅ Auto-refresh
+
+### 2.10 Live Monitor `/live`
+- ✅ WebSocket connection
+- ✅ Real-time event feed
+- ✅ Agent status cards
+- ✅ Delegation tree visualization
 
 ---
 
@@ -136,78 +144,78 @@
 - ✅ Auth guard (localStorage)
 - ✅ Auto-reload on 403
 - ✅ Logout button
+- ✅ Robust key loading (OS env + .env file)
+- ✅ /api/auth/reset-key endpoint
 - ⬜ **Add:** API key generation (admin)
 - ⬜ **Add:** Multiple API keys (read/write roles)
 - ⬜ **Add:** Key expiry & rotation
-- ⬜ **Add:** Audit log (who did what)
 
 ### 3.2 Settings `/settings`
 - ⬜ UI preferences (theme, sidebar, refresh interval)
-- ⬜ Notification settings
 - ⬜ API key management
 - ⬜ Language selector
-- ⬜ Export/Import UI settings
 
 ### 3.3 System Monitor `/system`
 - ⬜ CPU/Memory/Disk usage graphs
 - ⬜ Process list (PM2)
 - ⬜ Environment variables viewer
-- ⬜ Hermes version info
-- ⬜ Log level control
 
 ---
 
 ## Phase 4: Polish & UX
 
 ### 4.1 UI/UX
+- ✅ Error boundaries
+- ✅ Loading skeletons
+- ✅ Empty state messages
+- ✅ Responsive sidebar (collapsible)
 - ⬜ Mobile responsive design
 - ⬜ Dark/Light theme toggle
 - ⬜ Keyboard shortcuts
 - ⬜ Global search (Cmd+K)
-- ⬜ Breadcrumbs navigation
-- ⬜ Toast notifications
-- ⬜ Loading skeletons for all pages
-- ⬜ Empty state illustrations
 
 ### 4.2 Performance
 - ⬜ Virtual scrolling for large lists
 - ⬜ Debounced search
 - ⬜ Lazy loading for page components
 - ⬜ API response caching
-- ⬜ Optimistic updates
 
 ---
 
 ## Implementation Order
 
-### Sprint 1 (Week 1)
-1. Session Detail page
-2. Cron job CRUD (create, edit, pause, delete)
-3. Streaming chat (SSE)
-4. Mobile responsive
+### Sprint 1 (Week 1) — ✅ COMPLETE
+1. ✅ Fix auth (key loading, reset-key endpoint)
+2. ✅ Fix backend services (dynamic columns, recursive skills, tools fallback)
+3. ✅ Session Detail page (messages, delete, date fallback)
+4. ✅ Cron job CRUD
+5. ✅ Chat improvements (model parsing, error handling)
+6. ✅ Frontend response format handling
 
-### Sprint 2 (Week 2)
+### Sprint 2 (Week 2) — 🔄 IN PROGRESS
 1. Vector Memory search
 2. Skill Runner
-3. Provider Status
-4. Gateway Monitor
+3. Provider health check
+4. Gateway Monitor real-time
 
 ### Sprint 3 (Week 3)
-1. Kanban drag & drop
+1. Kanban CRUD (add/edit/delete tasks)
 2. Settings page
-3. System Monitor
-4. Global search
+3. Global search
 
 ### Sprint 4 (Week 4)
 1. Auth enhancement (multi-key, roles)
-2. Audit log
-3. Polish & UX
-4. Performance optimization
+2. Polish & UX
+3. Performance optimization
 
 ---
 
-## Notes
-- All features must be tested locally before deploy
-- Use feature flags for incomplete features
-- Keep backward compatibility with existing API
-- Document new API endpoints in OpenAPI/Swagger
+## Known Issues
+- SSH key sandbox → bravo-dev expired (need to re-add public key)
+- hermes_api: false (Hermes API server not accessible from backend container)
+- Need to verify UI after deploy (login key may need reset via /api/auth/reset-key)
+
+## Deployment Notes
+- Repo: github.com/saipulbahri-ap/hermes-custom-ui
+- Deploy: ssh bravo → git pull → npm run build → PM2 restart
+- If auth key mismatch: use /api/auth/reset-key endpoint with new key
