@@ -7,6 +7,7 @@ from backend.services import (
     list_memory,
     list_cron_jobs,
     read_config, read_env, write_config,
+    read_config_safe, read_env_safe,
     list_profiles, set_active_profile,
     get_tools_info,
     list_plugins,
@@ -66,7 +67,7 @@ async def cron():
 # ── Config ──
 @router.get("/config")
 async def config():
-    return {"yaml": read_config(), "env": read_env()}
+    return {"yaml": read_config_safe(), "env": read_env_safe()}
 
 
 @router.put("/config")
@@ -95,15 +96,23 @@ async def tools():
 @router.get("/gateway")
 async def gateway():
     cfg = read_config()
+    # Platforms can be in cfg["platforms"] or scattered as telegram/discord/etc keys
     platforms = cfg.get("platforms", {})
+    if not platforms:
+        # Auto-detect platform configs
+        for key in ("telegram", "discord", "slack", "signal", "whatsapp", "matrix"):
+            if key in cfg and isinstance(cfg[key], dict):
+                platforms[key] = cfg[key]
     channels = cfg.get("channels", {})
     result = []
     for name, info in platforms.items():
+        if not isinstance(info, dict):
+            continue
         enabled = info.get("enabled", True)
         result.append({
             "name": name,
             "enabled": enabled,
-            "config": {k: v for k, v in info.items() if k != "token"},
+            "config": {k: (v if k != "token" else "***") for k, v in info.items()},
         })
     return {"platforms": result, "channels": channels}
 
@@ -111,7 +120,28 @@ async def gateway():
 # ── Providers ──
 @router.get("/providers")
 async def providers():
-    return get_providers()
+    result = get_providers()
+    if not result:
+        # Fallback: scan model.providers from config
+        cfg = read_config()
+        model_cfg = cfg.get("model", {})
+        proms = model_cfg.get("providers", {})
+        for name, info in proms.items():
+            result.append({
+                "name": name,
+                "model": info.get("model", info.get("default_model", "")),
+                "api_base": info.get("api_base", ""),
+            })
+        # Also check fallback_providers
+        fb = model_cfg.get("fallback_providers", [])
+        for p in fb:
+            if isinstance(p, dict):
+                result.append({
+                    "name": p.get("provider", p.get("name", "")),
+                    "model": p.get("model", ""),
+                    "api_base": p.get("base_url", p.get("api_base", "")),
+                })
+    return result
 
 
 # ── Kanban ──

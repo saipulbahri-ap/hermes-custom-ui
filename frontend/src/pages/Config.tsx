@@ -6,7 +6,8 @@ import {
 import { getConfig, putConfig } from '../lib/api'
 
 export default function Config() {
-  const [config, setConfig] = useState<Record<string, any>>({})
+  const [yamlConfig, setYamlConfig] = useState<Record<string, any>>({})
+  const [envConfig, setEnvConfig] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -14,16 +15,19 @@ export default function Config() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['_root']))
   const [newKey, setNewKey] = useState('')
   const [newVal, setNewVal] = useState('')
+  const [activeTab, setActiveTab] = useState<'yaml' | 'env'>('yaml')
 
   const fetchConfig = async () => {
     setLoading(true)
     setError('')
     try {
       const res = await getConfig()
-      setConfig(res?.config || res?.data || res || {})
+      setYamlConfig(res?.yaml || res?.config || {})
+      setEnvConfig(res?.env || {})
     } catch (e: any) {
       setError(e.message)
-      setConfig({})
+      setYamlConfig({})
+      setEnvConfig({})
     } finally {
       setLoading(false)
     }
@@ -47,7 +51,7 @@ export default function Config() {
     setError('')
     setSuccess('')
     try {
-      await putConfig(config)
+      await putConfig({ yaml: yamlConfig, env: envConfig })
       setSuccess('Configuration saved')
       setTimeout(() => setSuccess(''), 3000)
     } catch (e: any) {
@@ -57,16 +61,19 @@ export default function Config() {
     }
   }
 
+  const config = activeTab === 'yaml' ? yamlConfig : envConfig
+  const setConfig = activeTab === 'yaml' ? setYamlConfig : setEnvConfig
+
   const addKey = () => {
     const k = newKey.trim()
     if (!k) return
-    setConfig((c) => ({ ...c, [k]: newVal || '' }))
+    setConfig((c: any) => ({ ...c, [k]: newVal || '' }))
     setNewKey('')
     setNewVal('')
   }
 
   const removeKey = (key: string) => {
-    setConfig((c) => {
+    setConfig((c: any) => {
       const next = { ...c }
       delete next[key]
       return next
@@ -74,7 +81,7 @@ export default function Config() {
   }
 
   const updateKey = (key: string, val: any) => {
-    setConfig((c) => ({ ...c, [key]: val }))
+    setConfig((c: any) => ({ ...c, [key]: val }))
   }
 
   const renderValue = (key: string, val: any, path: string): React.ReactNode => {
@@ -148,26 +155,52 @@ export default function Config() {
         </div>
       )}
 
-      {/* Add Key */}
-      <div className="card mb-4 flex items-center gap-2 flex-wrap">
-        <input
-          className="input flex-1 min-w-[140px] text-xs"
-          placeholder="Key"
-          value={newKey}
-          onChange={(e) => setNewKey(e.target.value)}
-        />
-        <input
-          className="input flex-1 min-w-[140px] text-xs"
-          placeholder="Value"
-          value={newVal}
-          onChange={(e) => setNewVal(e.target.value)}
-        />
-        <button onClick={addKey} className="btn-primary text-xs flex items-center gap-1">
-          <Plus className="w-3 h-3" /> Add
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-gray-800">
+        <button
+          onClick={() => setActiveTab('yaml')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            activeTab === 'yaml'
+              ? 'text-hermes-300 border-hermes-500'
+              : 'text-gray-500 border-transparent hover:text-gray-300'
+          }`}
+        >
+          config.yaml ({Object.keys(yamlConfig).length})
+        </button>
+        <button
+          onClick={() => setActiveTab('env')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            activeTab === 'env'
+              ? 'text-hermes-300 border-hermes-500'
+              : 'text-gray-500 border-transparent hover:text-gray-300'
+          }`}
+        >
+          .env ({Object.keys(envConfig).length})
         </button>
       </div>
 
-      {/* Config Tree */}
+      {/* Add Key (yaml only) */}
+      {activeTab === 'yaml' && (
+        <div className="card mb-4 flex items-center gap-2 flex-wrap">
+          <input
+            className="input flex-1 min-w-[140px] text-xs"
+            placeholder="Key"
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+          />
+          <input
+            className="input flex-1 min-w-[140px] text-xs"
+            placeholder="Value"
+            value={newVal}
+            onChange={(e) => setNewVal(e.target.value)}
+          />
+          <button onClick={addKey} className="btn-primary text-xs flex items-center gap-1">
+            <Plus className="w-3 h-3" /> Add
+          </button>
+        </div>
+      )}
+
+      {/* Config Tree / Env list */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {loading && Object.keys(config).length === 0 ? (
           <div className="space-y-2">
@@ -178,9 +211,33 @@ export default function Config() {
         ) : Object.keys(config).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <Settings className="w-10 h-10 mb-2 text-gray-700" />
-            <p className="text-sm">No configuration data</p>
+            <p className="text-sm">
+              {activeTab === 'yaml' ? 'No config.yaml data' : 'No .env data'}
+            </p>
+          </div>
+        ) : activeTab === 'env' ? (
+          /* Env: flat key-value pairs */
+          <div className="card space-y-2">
+            {Object.entries(config).map(([key, val]) => (
+              <div key={key} className="flex items-center gap-3 group">
+                <span className="text-xs font-mono text-gray-400 min-w-[180px] truncate">{key}</span>
+                <input
+                  className="input flex-1 text-xs py-1"
+                  value={String(val ?? '')}
+                  onChange={(e) => updateKey(key, e.target.value)}
+                />
+                <button
+                  onClick={() => removeKey(key)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-red-400"
+                  title="Remove"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
+          /* YAML: tree view */
           <div className="card space-y-1">
             {Object.entries(config).map(([key, val]) => (
               <div key={key} className="flex items-start gap-2 group">

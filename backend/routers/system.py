@@ -37,7 +37,10 @@ async def health():
 @router.get("/stats")
 async def stats():
     cfg = read_config()
-    providers = cfg.get("providers", {})
+    providers_cfg = cfg.get("providers", {})
+    if not providers_cfg:
+        # Also check model.providers
+        providers_cfg = cfg.get("model", {}).get("providers", {})
     profiles_dir = HERMES_HOME / "profiles"
     skills_dir = HERMES_HOME / "skills"
     
@@ -69,7 +72,7 @@ async def stats():
         pass
 
     return {
-        "providers": len(providers),
+        "providers": len(providers_cfg),
         "active_profiles": len([d for d in profiles_dir.iterdir() if d.is_dir()]) if profiles_dir.exists() else 0,
         "active_skills": len(list(skills_dir.iterdir())) if skills_dir.exists() else 0,
         "sessions_count": count_sessions(),

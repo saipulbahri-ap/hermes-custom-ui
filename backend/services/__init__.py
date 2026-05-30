@@ -139,11 +139,53 @@ def get_skill_content(name: str) -> Optional[str]:
 
 # ── Config ──
 
+_SENSITIVE_KEY_PATTERNS = (
+    "api_key", "token", "secret", "password", "private_key",
+    "bearer", "authorization", "credential",
+)
+
+
+def _mask_secrets(obj, path=""):
+    """Recursively mask sensitive values in config dict."""
+    if isinstance(obj, dict):
+        masked = {}
+        for k, v in obj.items():
+            sub_path = f"{path}.{k}" if path else k
+            if any(pat in k.lower() for pat in _SENSITIVE_KEY_PATTERNS):
+                if isinstance(v, str) and v:
+                    masked[k] = v[:4] + "***" if len(v) > 4 else "***"
+                else:
+                    masked[k] = "***"
+            else:
+                masked[k] = _mask_secrets(v, sub_path)
+        return masked
+    elif isinstance(obj, list):
+        return [_mask_secrets(item, path) for item in obj]
+    return obj
+
+
 def read_config() -> dict:
     p = HERMES_HOME / "config.yaml"
     if not p.exists():
         return {}
     return yaml.safe_load(p.read_text()) or {}
+
+
+def read_config_safe() -> dict:
+    """Return config with secrets masked for frontend display."""
+    return _mask_secrets(read_config())
+
+
+def read_env_safe() -> dict[str, str]:
+    """Return env with secrets masked for frontend display."""
+    env = read_env()
+    masked = {}
+    for k, v in env.items():
+        if any(pat in k.lower() for pat in _SENSITIVE_KEY_PATTERNS):
+            masked[k] = v[:4] + "***" if len(v) > 4 else "***"
+        else:
+            masked[k] = v
+    return masked
 
 
 def read_env() -> dict[str, str]:
@@ -162,9 +204,27 @@ def read_env() -> dict[str, str]:
 
 
 def write_config(data: dict) -> bool:
+    """Merge partial config into existing config (preserves keys not in data)."""
+    import copy
+    existing = read_config()
+    if not isinstance(existing, dict):
+        existing = {}
+    # Deep merge: data overrides existing
+    merged = _deep_merge(existing, data)
     p = HERMES_HOME / "config.yaml"
-    p.write_text(yaml.dump(data, default_flow_style=False))
+    p.write_text(yaml.dump(merged, default_flow_style=False, allow_unicode=True))
     return True
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override into base. Override wins on conflict."""
+    result = copy.deepcopy(base)
+    for k, v in override.items():
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = copy.deepcopy(v)
+    return result
 
 
 # ── Profiles ──
@@ -203,29 +263,99 @@ def set_active_profile(name: str) -> bool:
 # ── Cron ──
 
 def list_cron_jobs() -> list[dict]:
+    """List cron jobs via CLI. Tries JSON output first, then falls back to line parsing."""
+    # Try JSON output first
+    out, code = cli("cron", "list", "--json")
+    if code == 0 and out.strip():
+        try:
+            data = json.loads(out)
+            if isinstance(data, list):
+                return [_normalize_cron_job(j) for j in data]
+            if isinstance(data, dict):
+                jobs = data.get("jobs", data.get("crons", []))
+                return [_normalize_cron_job(j) for j in jobs]
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Fallback: parse text output
     out, _ = cli("cron", "list")
     jobs = []
     for line in out.strip().split("\n"):
-        if not line.strip():
+        if not line.strip() or line.startswith("No") or line.startswith("ID"):
             continue
-        parts = line.split()
-        jobs.append({
-            "id": parts[0] if parts else "",
-            "name": " ".join(parts[1:]) if len(parts) > 1 else "",
-        })
+        parts = line.split(None, 3)
+        job = {"id": "", "name": "", "schedule": "", "status": ""}
+        if len(parts) >= 1:
+            job["id"] = parts[0]
+        if len(parts) >= 2:
+            job["name"] = parts[1]
+        if len(parts) >= 3:
+            job["schedule"] = parts[2]
+        if len(parts) >= 4:
+            job["status"] = parts[3]
+        else:
+            job["status"] = "active"
+        jobs.append(job)
     return jobs
+
+
+def _normalize_cron_job(j: dict) -> dict:
+    """Normalize a cron job dict from various formats."""
+    return {
+        "id": str(j.get("id", j.get("job_id", ""))),
+        "name": str(j.get("name", j.get("prompt", j.get("task", "")))),
+        "schedule": str(j.get("schedule", j.get("cron", j.get("interval", "")))),
+        "status": str(j.get("status", j.get("enabled", "active"))),
+    }
 
 
 # ── Memory ──
 
-def list_memory(target: str = "memory") -> list[dict]:
-    out, _ = cli("memory", "list", "--target", target)
+def _read_memory_entries(path: Path) -> list[dict]:
+    """Read memory entries from a markdown file (MEMORY.md or USER.md).
+    
+    Each entry is a paragraph/block separated by blank lines.
+    We skip headers, empty lines, and the frontmatter block.
+    """
+    if not path.exists():
+        return []
+    text = path.read_text()
     entries = []
-    for line in out.strip().split("\n"):
-        if not line.strip() or line.startswith("No"):
+    current: list[str] = []
+    in_frontmatter = False
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if stripped == '---':
+            in_frontmatter = not in_frontmatter
             continue
-        entries.append({"content": line.strip(), "target": target})
+        if in_frontmatter:
+            continue
+        if stripped == '':
+            if current:
+                content = '\n'.join(current).strip()
+                if content and not content.startswith('#'):
+                    entries.append({'content': content})
+                current = []
+            continue
+        current.append(line)
+    if current:
+        content = '\n'.join(current).strip()
+        if content and not content.startswith('#'):
+            entries.append({'content': content})
     return entries
+
+
+def list_memory(target: str = "memory") -> list[dict]:
+    """Return memory entries by reading directly from MEMORY.md or USER.md.
+    
+    target='memory' → reads ~/.hermes/MEMORY.md
+    target='user'   → reads ~/.hermes/USER.md
+    """
+    if target == "user":
+        path = HERMES_HOME / "USER.md"
+    else:
+        path = HERMES_HOME / "MEMORY.md"
+    return _read_memory_entries(path)
 
 
 # ── Plugins ──

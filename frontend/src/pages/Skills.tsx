@@ -8,9 +8,14 @@ import { getSkills, getSkill } from '../lib/api'
 interface Skill {
   name: string
   description?: string
-  enabled?: boolean
   version?: string
   author?: string
+  category?: string
+  content?: string
+  linked_files?: string[]
+  path?: string
+  size_bytes?: number
+  content_preview?: string
 }
 
 export default function Skills() {
@@ -83,6 +88,8 @@ export default function Skills() {
           </div>
         </form>
 
+        <p className="text-xs text-gray-500 mb-2">{filtered.length} skill{filtered.length !== 1 ? 's' : ''}</p>
+
         <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
           {loading && skills.length === 0 ? (
             <div className="space-y-2">
@@ -104,11 +111,8 @@ export default function Skills() {
                   selected?.name === s.name ? 'border-hermes-500/50' : ''
                 }`}
               >
-                <div className={`p-1.5 rounded-lg ${s.enabled ? 'bg-green-900/30' : 'bg-gray-800'}`}>
-                  {s.enabled
-                    ? <Power className="w-4 h-4 text-green-400" />
-                    : <PowerOff className="w-4 h-4 text-gray-500" />
-                  }
+                <div className="p-1.5 rounded-lg bg-hermes-600/10">
+                  <Code2 className="w-4 h-4 text-hermes-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-200 truncate">{s.name}</p>
@@ -116,9 +120,9 @@ export default function Skills() {
                     {s.description || 'No description'}
                   </p>
                 </div>
-                <span className={`badge ${s.enabled ? 'badge-green' : 'badge-gray'}`}>
-                  {s.enabled ? 'Active' : 'Inactive'}
-                </span>
+                {s.category && (
+                  <span className="badge badge-gray text-xs shrink-0">{s.category}</span>
+                )}
               </button>
             ))
           )}
@@ -127,13 +131,13 @@ export default function Skills() {
 
       {/* Detail */}
       {selected && (
-        <div className="w-1/2 border-l border-gray-800 pl-4">
+        <div className="w-1/2 border-l border-gray-800 pl-4 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-200 truncate">{selected.name}</h2>
             <button onClick={() => setSelected(null)} className="btn-ghost text-xs">Close</button>
           </div>
 
-          <div className="space-y-3 text-sm">
+          <div className="flex-1 overflow-y-auto space-y-3 text-sm min-h-0">
             <div className="card space-y-1">
               <p className="text-gray-400">Name</p>
               <p className="text-gray-200 font-mono">{selected.name}</p>
@@ -142,12 +146,12 @@ export default function Skills() {
               <p className="text-gray-400">Description</p>
               <p className="text-gray-200">{selected.description || '-'}</p>
             </div>
-            <div className="card space-y-1">
-              <p className="text-gray-400">Status</p>
-              <span className={`badge ${selected.enabled ? 'badge-green' : 'badge-gray'}`}>
-                {selected.enabled ? 'Enabled' : 'Disabled'}
-              </span>
-            </div>
+            {selected.category && (
+              <div className="card space-y-1">
+                <p className="text-gray-400">Category</p>
+                <span className="badge badge-gray">{selected.category}</span>
+              </div>
+            )}
             {selected.version && (
               <div className="card space-y-1">
                 <p className="text-gray-400">Version</p>
@@ -167,18 +171,38 @@ export default function Skills() {
               </div>
             )}
 
+            {detail?.content && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <Terminal className="w-3 h-3" /> SKILL.md Preview
+                </p>
+                <pre className="card text-xs font-mono text-gray-300 overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap">
+                  {detail.content}
+                </pre>
+              </div>
+            )}
+
+            {detail?.linked_files && detail.linked_files.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Linked Files</p>
+                <div className="space-y-1">
+                  {detail.linked_files.map((f: string) => (
+                    <div key={f} className="card text-xs font-mono text-gray-400">{f}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {detail?.config && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                  Config
-                </p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Config</p>
                 <pre className="card text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap">
                   {JSON.stringify(detail.config, null, 2)}
                 </pre>
               </div>
             )}
 
-            {detail?.source && (
+            {detail?.source && !detail?.content && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Terminal className="w-3 h-3" /> Source

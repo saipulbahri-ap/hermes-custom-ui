@@ -1,168 +1,37 @@
+#!/usr/bin/env python3
 """
-Hermes Monitor Plugin — Hermes Agent event capture & forwarding.
-
-Captures agent lifecycle events and forwards them via HTTP POST to a
-backend service at http://localhost:8643/api/events/ingest.
-
-Supported event types:
-    - session_start / session_end
-    - message
-    - tool_call / tool_result
-    - delegation
-    - kanban_update
-
-Each event payload:
-    {
-        "type": str,
-        "timestamp": str (ISO-8601),
-        "agent_id": str,
-        "session_id": str,
-        "data": dict
-    }
-
-Hooks implemented:
-    - on_agent_start  →  session_start
-    - on_agent_end    →  session_end
-    - on_message      →  message
-    - on_tool_call    →  tool_call
-    - on_tool_result  →  tool_result
-
-Usage:
-    plugin = HermesMonitorPlugin(
-        agent_id="my-agent",
-        session_id="sess-001",
-        endpoint="http://localhost:8643/api/events/ingest"
-    )
-    plugin.on_agent_start()
-    plugin.on_message({"role": "user", "content": "hello"})
-    plugin.on_agent_end()
+Hermes Monitor Plugin
+Captures agent events and sends to Hermes Custom UI backend.
 """
-
+import os
 import json
-import logging
 import time
-from datetime import datetime, timezone
+import logging
+from pathlib import Path
+from typing import Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
-# Try requests, fall back to urllib
-try:
-    import requests as _requests
-    _HAS_REQUESTS = True
-except ImportError:
-    _HAS_REQUESTS = False
-    import urllib.request as _urllib_request
-    import urllib.error as _urllib_error
+UI_API_URL = os.environ.get("HERMES_UI_URL", "http://localhost:8643/api/events/ingest")
+UI_API_KEY=os.environ.get("HERMES_UI_API_KEY", "")
 
 
-def _send_http_post(url: str, payload: dict) -> bool:
-    """Send a JSON POST request.  Returns True on success."""
-    data = json.dumps(payload).encode("utf-8")
+async def send_event(event_type: str, data: dict, agent_id: str = "default", session_id: str = ""):
+    """Send event to Hermes UI backend."""
+    payload = {
+        "type": event_type,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "agent_id": agent_id,
+        "session_id": session_id,
+        "data": data
+    }
     headers = {"Content-Type": "application/json"}
-
-    if _HAS_REQUESTS:
-        import threading
-        def _do_req():
-            try:
-                _requests.post(url, data=data, headers=headers, timeout=2)
-            except Exception:
-                pass
-        threading.Thread(target=_do_req, daemon=True).start()
-        return True
-
-    # urllib fallback
-    import threading
-    def _do_post():
-        try:
-            req = _urllib_request.Request(url, data=data, headers=headers, method="POST")
-            with _urllib_request.urlopen(req, timeout=2) as resp:
-                resp.read()
-        except Exception:
-            pass
-    threading.Thread(target=_do_post, daemon=True).start()
-    return True
-
-
-class HermesMonitorPlugin:
-    """
-    Hermes Agent plugin that forwards lifecycle events to a backend API.
-
-    Parameters
-    ----------
-    agent_id : str
-        Identifier for the Hermes agent instance.
-    session_id : str
-        Unique session identifier (one per agent run).
-    endpoint : str, optional
-        Backend URL to send events to.
-        Default: http://localhost:8643/api/events/ingest
-    """
-
-    def __init__(
-        self,
-        agent_id: str,
-        session_id: str,
-        endpoint: str = "http://localhost:8643/api/events/ingest",
-    ):
-        self.agent_id = agent_id
-        self.session_id = session_id
-        self.endpoint = endpoint.rstrip("/")
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _now(self) -> str:
-        """Return current UTC timestamp in ISO-8601 format."""
-        return datetime.now(timezone.utc).isoformat()
-
-    def _emit(self, event_type: str, data: dict | None = None) -> bool:
-        """Build the event dict and POST it to the backend."""
-        payload = {
-            "type": event_type,
-            "timestamp": self._now(),
-            "agent_id": self.agent_id,
-            "session_id": self.session_id,
-            "data": data or {},
-        }
-        logger.debug("HermesMonitor: emitting %s", event_type)
-        return _send_http_post(self.endpoint, payload)
-
-    # ------------------------------------------------------------------
-    # Hermes hooks
-    # ------------------------------------------------------------------
-
-    def on_agent_start(self, data: dict | None = None) -> None:
-        """Called when an agent session begins.
-
-        Emits a *session_start* event.
-        """
-        self._emit("session_start", data)
-
-    def on_agent_end(self, data: dict | None = None) -> None:
-        """Called when an agent session ends.
-
-        Emits a *session_end* event.
-        """
-        self._emit("session_end", data)
-
-    def on_message(self, data: dict | None = None) -> None:
-        """Called for each conversational message.
-
-        Emits a *message* event.
-        """
-        self._emit("message", data)
-
-    def on_tool_call(self, data: dict | None = None) -> None:
-        """Called when the agent invokes a tool.
-
-        Emits a *tool_call* event.
-        """
-        self._emit("tool_call", data)
-
-    def on_tool_result(self, data: dict | None = None) -> None:
-        """Called when a tool returns a result.
-
-        Emits a *tool_result* event.
-        """
-        self._emit("tool_result", data)
+    if UI_API_KEY:
+        headers["Authorization"] = "Bearer " + UI_API_KEY
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.post(UI_API_URL, json=payload, headers=headers)
+    except Exception as e:
+        logger.debug("Plugin event send failed: %s", e)

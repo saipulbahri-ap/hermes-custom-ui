@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { stats } from '../lib/api'
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { stats } from '../lib/api';
 import {
   Activity, MessageSquare, Brain, Clock, Users,
   Code2, Wrench, FileText, Cpu,
@@ -11,6 +12,7 @@ interface Stats {
   memory_entries?: number
   active_skills?: number
   active_profiles?: number
+  providers?: number
   api_server?: boolean
   uptime?: number
   model?: string
@@ -88,9 +90,9 @@ export default function Dashboard() {
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quickLinks.map(({ to, icon: Icon, label, desc }) => (
-            <a
+            <Link
               key={to}
-              href={to}
+              to={to}
               className="card flex items-center gap-3 hover:border-hermes-500/50 transition-colors group"
             >
               <div className="p-2 rounded-lg bg-hermes-600/10 text-hermes-400 group-hover:bg-hermes-600/20 transition-colors">
@@ -100,12 +102,30 @@ export default function Dashboard() {
                 <p className="text-sm font-medium text-gray-200">{label}</p>
                 <p className="text-xs text-gray-500">{desc}</p>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </div>
 
-      {/* System Info */}
+      {/* Quick stats mini */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick Stats</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {!data ? (
+            <>
+              {[1,2,3,4].map(i => <div key={i} className="card h-16 animate-pulse bg-gray-800/50" />)}
+            </>
+          ) : (
+            <>
+              <div className="card"><p className="text-xs text-gray-500">Skills</p><p className="text-lg font-bold text-gray-200">{data.active_skills ?? '-'}</p></div>
+              <div className="card"><p className="text-xs text-gray-500">Profiles</p><p className="text-lg font-bold text-gray-200">{data.active_profiles ?? '-'}</p></div>
+              <div className="card"><p className="text-xs text-gray-500">Providers</p><p className="text-lg font-bold text-gray-200">{data.providers ?? '-'}</p></div>
+              <div className="card"><p className="text-xs text-gray-500">Memory</p><p className="text-lg font-bold text-gray-200">{data.memory_entries ?? '-'}</p></div>
+            </>
+          )}
+        </div>
+      </div>
+
       {data && (
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">System</h3>
