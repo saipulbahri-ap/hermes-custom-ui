@@ -1,10 +1,24 @@
 const BASE = '/api'
 
+function getApiKey(): string | null {
+  return localStorage.getItem('hermes_api_key')
+}
+
 async function api<T>(path: string, opts?: RequestInit): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(getApiKey() ? { 'X-API-Key': getApiKey()! } : {}),
+      ...opts?.headers,
+    },
     ...opts,
   })
+  if (r.status === 403) {
+    // Key invalid — force re-login
+    localStorage.removeItem('hermes_api_key')
+    window.location.reload()
+    throw new Error('403: Invalid API key')
+  }
   if (!r.ok) {
     const text = await r.text().catch(() => '')
     throw new Error(`${r.status}: ${text || r.statusText}`)
