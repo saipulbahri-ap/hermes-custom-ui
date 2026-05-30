@@ -1,12 +1,12 @@
 """System routes - health (public), stats (protected)"""
 import time
 
-import httpx
 from fastapi import APIRouter, Depends
+import httpx
 
 from backend.config import HERMES_HOME, HERMES_API_URL, HERMES_API_KEY
 from backend.services import state_db_path, count_sessions, read_config
-from backend.main import verify_api_key
+from backend.auth import verify_api_key
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 _start = time.time()
