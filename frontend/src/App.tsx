@@ -19,6 +19,10 @@ import Logs from './pages/Logs'
 import Plugins from './pages/Plugins'
 import Live from './pages/Live'
 import SessionDetail from './pages/SessionDetail'
+import VectorMemory from './pages/VectorMemory'
+import SkillRunner from './pages/SkillRunner'
+import ProviderHealth from './pages/ProviderHealth'
+import GatewayMonitor from './pages/GatewayMonitor'
 
 export default function App() {
   return (
@@ -38,11 +42,15 @@ export default function App() {
               <Route path="/profiles" element={<Profiles />} />
               <Route path="/tools" element={<Tools />} />
               <Route path="/gateway" element={<Gateway />} />
+              <Route path="/gateway/monitor" element={<GatewayMonitor />} />
               <Route path="/providers" element={<Providers />} />
+              <Route path="/providers/health" element={<ProviderHealth />} />
               <Route path="/kanban" element={<Kanban />} />
               <Route path="/logs" element={<Logs />} />
               <Route path="/plugins" element={<Plugins />} />
               <Route path="/live" element={<Live />} />
+              <Route path="/vector-memory" element={<VectorMemory />} />
+              <Route path="/skill-runner" element={<SkillRunner />} />
             </Routes>
           </Layout>
         </ErrorBoundary>

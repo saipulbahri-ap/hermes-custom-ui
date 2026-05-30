@@ -25,12 +25,18 @@ from backend.routers.system import router as system_router
 from backend.routers.chat import router as chat_router
 from backend.routers.hermes import router as hermes_router
 from backend.routers.events import router as events_router
+from backend.routers.vector_memory import router as vector_memory_router
+from backend.routers.skill_runner import router as skill_runner_router
+from backend.routers.monitoring import router as monitoring_router
 
 # Health is public; everything else requires auth when UI_API_KEY is set
 app.include_router(system_router)  # /api/system/* — health public, stats protected
 app.include_router(chat_router, dependencies=[Depends(verify_api_key)])    # /api/chat/*
 app.include_router(hermes_router, dependencies=[Depends(verify_api_key)])  # /api/sessions, /api/skills, etc.
 app.include_router(events_router)  # plugin events — public for ingest
+app.include_router(vector_memory_router, dependencies=[Depends(verify_api_key)])  # /api/vector-memory/*
+app.include_router(skill_runner_router, dependencies=[Depends(verify_api_key)])  # /api/skill-runner/*
+app.include_router(monitoring_router, dependencies=[Depends(verify_api_key)])  # /api/providers/health, /api/gateway/*
 
 
 @app.get("/")

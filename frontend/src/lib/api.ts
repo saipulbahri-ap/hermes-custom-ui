@@ -97,3 +97,23 @@ export const getLogs = (limit?: number) =>
 
 // Plugins
 export const getPlugins = () => api<any>('/plugins')
+
+// Vector Memory
+export const getVectorMemoryCollections = () => api<any>('/vector-memory/collections')
+export const vectorMemorySearch = (q: string, collection = 'general', limit = 10) =>
+  api<any>(`/vector-memory/search?q=${encodeURIComponent(q)}&collection=${collection}&limit=${limit}`)
+export const vectorMemoryAdd = (collection: string, content: string, metadata?: any) =>
+  api<any>('/vector-memory/add', { method: 'POST', body: JSON.stringify({ collection, content, metadata }) })
+export const vectorMemoryDelete = (collection: string, entryId: string) =>
+  api<any>(`/vector-memory/${encodeURIComponent(collection)}/${encodeURIComponent(entryId)}`, { method: 'DELETE' })
+
+// Skill Runner
+export const runSkill = (name: string, params?: any) =>
+  api<any>('/skill-runner/run', { method: 'POST', body: JSON.stringify({ name, params }) })
+
+// Provider Health
+export const getProvidersHealth = () => api<any>('/providers/health')
+
+// Gateway Monitor
+export const getGatewayChannels = () => api<any>('/gateway/channels')
+export const getGatewayMessages = (limit = 50) => api<any>(`/gateway/messages?limit=${limit}`)

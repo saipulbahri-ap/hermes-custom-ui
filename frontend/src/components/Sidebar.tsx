@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, History, Brain, Code2,
   Clock, Settings, Users, Wrench, Radio, Cpu, Columns3,
-  FileText, Puzzle, Activity,
+  FileText, Puzzle, Activity, Zap, Database, HeartPulse, MonitorDot,
 } from 'lucide-react'
 
 const navItems = [
@@ -11,17 +11,20 @@ const navItems = [
   { to: '/chat', icon: MessageSquare, label: 'Chat', short: 'Chat' },
   { to: '/sessions', icon: History, label: 'Sessions', short: 'Sessions' },
   { to: '/memory', icon: Brain, label: 'Memory', short: 'Memory' },
+  { to: '/vector-memory', icon: Database, label: 'Vector Memory', short: 'VecMem' },
   { to: '/skills', icon: Code2, label: 'Skills', short: 'Skills' },
+  { to: '/skill-runner', icon: Zap, label: 'Skill Runner', short: 'Run' },
   { to: '/cron', icon: Clock, label: 'Cron Jobs', short: 'Cron' },
   { to: '/config', icon: Settings, label: 'Config', short: 'Config' },
   { to: '/profiles', icon: Users, label: 'Profiles', short: 'Profiles' },
   { to: '/tools', icon: Wrench, label: 'Tools', short: 'Tools' },
   { to: '/gateway', icon: Radio, label: 'Gateway', short: 'Gateway' },
-  { to: '/providers', icon: Cpu, label: 'Providers', short: 'Providers' },
+  { to: '/providers', icon: Cpu, label: 'Providers', short: 'Providers', badge: '' },
+  { to: '/providers/health', icon: HeartPulse, label: 'Provider Health', short: 'Health' },
   { to: '/kanban', icon: Columns3, label: 'Kanban', short: 'Kanban' },
   { to: '/logs', icon: FileText, label: 'Logs', short: 'Logs' },
-  { to: '/live', icon: Activity, label: 'Live', short: 'Live' },
   { to: '/plugins', icon: Puzzle, label: 'Plugins', short: 'Plugins' },
+  { to: '/live', icon: Activity, label: 'Live', short: 'Live' },
 ]
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {

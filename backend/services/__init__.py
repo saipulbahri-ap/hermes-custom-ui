@@ -733,3 +733,421 @@ def get_kanban_columns() -> list[dict]:
     for status, items in columns.items():
         result.append({"status": status, "items": items, "count": len(items)})
     return result
+
+
+# ── Vector Memory ──
+
+def get_vector_memory_collections() -> list[dict]:
+    """Get vector memory collections. Tries ChromaDB first, falls back to file scan."""
+    collections = []
+
+    # Try ChromaDB
+    try:
+        import chromadb
+        vm_dir = HERMES_HOME / "vector-memory"
+        if vm_dir.exists():
+            client = chromadb.PersistentClient(path=str(vm_dir))
+            for col in client.list_collections():
+                count = col.count()
+                collections.append({
+                    "name": col.name,
+                    "count": count,
+                    "metadata": col.metadata or {},
+                })
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # Fallback: scan vector-memory directory
+    if not collections:
+        vm_dir = HERMES_HOME / "vector-memory"
+        if vm_dir.exists():
+            for d in sorted(vm_dir.iterdir()):
+                if d.is_dir():
+                    # Count files as proxy for entries
+                    files = list(d.rglob("*.json")) + list(d.rglob("*.sqlite")) + list(d.rglob("*.db"))
+                    collections.append({
+                        "name": d.name,
+                        "count": len(files),
+                        "metadata": {},
+                    })
+
+    return collections
+
+
+def vector_memory_search(query: str, collection: str = "general", limit: int = 10) -> list[dict]:
+    """Search vector memory using semantic search. Tries ChromaDB first."""
+    results = []
+
+    # Try ChromaDB with embedding
+    try:
+        import chromadb
+        vm_dir = HERMES_HOME / "vector-memory"
+        if vm_dir.exists():
+            client = chromadb.PersistentClient(path=str(vm_dir))
+            try:
+                col = client.get_collection(collection)
+            except Exception:
+                # Try default collection
+                try:
+                    col = client.get_collection("general")
+                except Exception:
+                    col = None
+
+            if col:
+                # Try query with embedding
+                try:
+                    query_result = col.query(query_texts=[query], n_results=limit)
+                    if query_result and query_result.get("documents"):
+                        for i, doc in enumerate(query_result["documents"][0]):
+                            meta = {}
+                            if query_result.get("metadatas") and query_result["metadatas"][0]:
+                                meta = query_result["metadatas"][0][i] or {}
+                            dist = 0.0
+                            if query_result.get("distances") and query_result["distances"][0]:
+                                dist = query_result["distances"][0][i]
+                            results.append({
+                                "content": doc,
+                                "metadata": meta,
+                                "score": 1.0 - float(dist) if dist else 0.5,
+                            })
+                except Exception:
+                    pass
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # Fallback: keyword search in memory files
+    if not results:
+        vm_dir = HERMES_HOME / "vector-memory"
+        if vm_dir.exists():
+            search_dir = vm_dir / collection if (vm_dir / collection).exists() else vm_dir
+            query_lower = query.lower()
+            for f in sorted(search_dir.rglob("*.md")) + sorted(search_dir.rglob("*.txt")) + sorted(search_dir.rglob("*.json")):
+                try:
+                    text = f.read_text()
+                    if query_lower in text.lower():
+                        idx = text.lower().index(query_lower)
+                        snippet = text[max(0, idx-100):idx+200]
+                        score = 0.3  # keyword match baseline
+                        results.append({
+                            "content": snippet,
+                            "metadata": {"source": str(f.relative_to(vm_dir))},
+                            "score": score,
+                        })
+                        if len(results) >= limit:
+                            break
+                except Exception:
+                    pass
+
+    return results[:limit]
+
+
+def vector_memory_add(collection: str, content: str, metadata: dict = None) -> dict:
+    """Add entry to vector memory. Tries ChromaDB, falls back to file."""
+    entry_id = f"entry_{int(__import__('time').time() * 1000)}"
+
+    # Try ChromaDB
+    try:
+        import chromadb
+        vm_dir = HERMES_HOME / "vector-memory"
+        vm_dir.mkdir(exist_ok=True)
+        client = chromadb.PersistentClient(path=str(vm_dir))
+        col = client.get_or_create_collection(collection)
+        col.add(
+            documents=[content],
+            ids=[entry_id],
+            metadatas=[metadata or {}],
+        )
+        return {"ok": True, "id": entry_id, "collection": collection}
+    except ImportError:
+        pass
+    except Exception as e:
+        pass
+
+    # Fallback: write to file
+    try:
+        vm_dir = HERMES_HOME / "vector-memory" / collection
+        vm_dir.mkdir(parents=True, exist_ok=True)
+        entry_file = vm_dir / f"{entry_id}.md"
+        meta_str = ""
+        if metadata and isinstance(metadata, dict):
+            meta_str = "---\n" + yaml.dump(metadata, default_flow_style=False) + "---\n\n"
+        entry_file.write_text(f"{meta_str}{content}")
+        return {"ok": True, "id": entry_id, "collection": collection}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def vector_memory_delete(collection: str, entry_id: str) -> dict:
+    """Delete entry from vector memory."""
+    # Try ChromaDB
+    try:
+        import chromadb
+        vm_dir = HERMES_HOME / "vector-memory"
+        if vm_dir.exists():
+            client = chromadb.PersistentClient(path=str(vm_dir))
+            try:
+                col = client.get_collection(collection)
+                col.delete(ids=[entry_id])
+                return {"ok": True, "id": entry_id}
+            except Exception:
+                pass
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # Fallback: delete file
+    try:
+        vm_dir = HERMES_HOME / "vector-memory"
+        for f in vm_dir.rglob(f"{entry_id}.*"):
+            f.unlink()
+            return {"ok": True, "id": entry_id}
+    except Exception:
+        pass
+
+    return {"ok": False, "error": "Entry not found"}
+
+
+# ── Skill Runner ──
+
+def run_skill(name: str, params: dict = None) -> dict:
+    """Run a skill by name with optional parameters.
+    
+    Tries to find the skill's SKILL.md and execute its scripts.
+    Returns execution result or error.
+    """
+    skills_dir = HERMES_HOME / "skills"
+    skill_dir = None
+
+    # Find skill directory
+    if (skills_dir / name).exists() and (skills_dir / name).is_dir():
+        skill_dir = skills_dir / name
+    else:
+        for d in skills_dir.rglob(name):
+            if d.is_dir() and (d / "SKILL.md").exists():
+                skill_dir = d
+                break
+
+    if not skill_dir:
+        return {"ok": False, "error": f"Skill '{name}' not found"}
+
+    result = {
+        "ok": True,
+        "skill": name,
+        "skill_dir": str(skill_dir),
+        "scripts_found": [],
+        "execution_output": "",
+    }
+
+    # Check for scripts
+    scripts_dir = skill_dir / "scripts"
+    if scripts_dir.exists():
+        for script in sorted(scripts_dir.iterdir()):
+            if script.suffix in ('.sh', '.py', '.bash'):
+                result["scripts_found"].append(str(script))
+
+    # Try running the skill via hermes CLI
+    out, code = cli("skill", "run", name)
+    if code == 0 and out.strip():
+        result["execution_output"] = out.strip()
+        result["via"] = "cli"
+        return result
+
+    # Fallback: try running scripts directly
+    if result["scripts_found"]:
+        script_path = result["scripts_found"][0]
+        try:
+            import stat
+            script_file = Path(script_path)
+            script_file.chmod(script_file.stat().st_mode | stat.S_IEXEC)
+            
+            cmd = ["bash", script_path] if script_path.endswith('.sh') else ["python3", script_path]
+            if params:
+                for k, v in params.items():
+                    cmd.extend([f"--{k}", str(v)])
+            
+            r = subprocess.run(
+                cmd,
+                capture_output=True, text=True, timeout=60,
+                cwd=str(skill_dir),
+                env={**os.environ, "SKILL_DIR": str(skill_dir), "HERMES_HOME": str(HERMES_HOME)},
+            )
+            result["execution_output"] = r.stdout.strip() or r.stderr.strip()
+            result["exit_code"] = r.returncode
+            result["via"] = "script"
+            if r.returncode != 0:
+                result["ok"] = False
+                result["error"] = f"Script exited with code {r.returncode}"
+            return result
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "error": "Script execution timed out (60s)"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    return result
+
+
+# ── Provider Health Check ──
+
+def check_provider_health() -> list[dict]:
+    """Check health of all configured providers. Returns list of provider status."""
+    import time as _time
+    
+    providers = get_providers()
+    results = []
+
+    for p in providers:
+        name = p.get("name", "unknown")
+        model = p.get("model", "")
+        api_base = p.get("api_base", "")
+
+        status_info = {
+            "name": name,
+            "model": model,
+            "api_base": api_base,
+            "status": "unknown",
+            "latency_ms": None,
+            "error": None,
+        }
+
+        # Determine API URL
+        api_url = api_base or p.get("base_url", "")
+        api_key = ""
+
+        # Try to find API key from config/env
+        cfg = read_raw_config()
+        providers_cfg = cfg.get("providers", {})
+        if isinstance(providers_cfg, dict) and name in providers_cfg:
+            p_cfg = providers_cfg[name]
+            if isinstance(p_cfg, dict):
+                api_key = p_cfg.get("api_key", p_cfg.get("token", p_cfg.get("key", "")))
+
+        if not api_key:
+            env_cfg = read_env()
+            key_variants = [
+                f"{name.upper()}_API_KEY",
+                f"{name.upper()}_KEY",
+                f"{name.upper()}_TOKEN",
+                "OPENROUTER_API_KEY",
+                "OPENAI_API_KEY",
+                "HERMES_API_KEY",
+            ]
+            for kv in key_variants:
+                if kv in env_cfg and env_cfg[kv]:
+                    api_key = env_cfg[kv]
+                    break
+
+        # Try health check via HTTP
+        if api_url:
+            try:
+                import urllib.request
+                import urllib.parse
+                import json as _json
+
+                headers = {"Content-Type": "application/json"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+
+                # Try /models endpoint
+                models_url = api_url.rstrip("/") + "/models"
+                req = urllib.request.Request(models_url, headers=headers)
+                
+                start = _time.time()
+                try:
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        elapsed = (_time.time() - start) * 1000
+                        status_info["status"] = "healthy"
+                        status_info["latency_ms"] = round(elapsed, 1)
+                except urllib.error.HTTPError as e:
+                    elapsed = (_time.time() - start) * 1000
+                    if e.code in (401, 403):
+                        status_info["status"] = "auth_error"
+                        status_info["latency_ms"] = round(elapsed, 1)
+                        status_info["error"] = f"Auth error: {e.code}"
+                    elif e.code >= 500:
+                        status_info["status"] = "error"
+                        status_info["latency_ms"] = round(elapsed, 1)
+                        status_info["error"] = f"Server error: {e.code}"
+                    else:
+                        # 404 on /models may mean URL is wrong but reachable
+                        status_info["status"] = "reachable"
+                        status_info["latency_ms"] = round(elapsed, 1)
+                        status_info["error"] = f"HTTP {e.code}"
+                except urllib.error.URLError as e:
+                    status_info["status"] = "unreachable"
+                    status_info["error"] = str(e.reason)
+            except Exception as e:
+                status_info["status"] = "error"
+                status_info["error"] = str(e)
+        else:
+            status_info["status"] = "no_url"
+
+        results.append(status_info)
+
+    return results
+
+
+def read_raw_config() -> dict:
+    """Read config.yaml without masking."""
+    return read_config()
+
+
+# ── Gateway Monitor ──
+
+def get_gateway_channels() -> list[dict]:
+    """Get gateway channel status."""
+    cfg = read_config()
+    platforms = cfg.get("platforms", {})
+    if not platforms:
+        for key in ("telegram", "discord", "slack", "signal", "whatsapp", "matrix"):
+            if key in cfg and isinstance(cfg[key], dict):
+                platforms[key] = cfg[key]
+
+    channels = []
+    for name, info in platforms.items():
+        if not isinstance(info, dict):
+            continue
+        channels.append({
+            "name": name,
+            "enabled": info.get("enabled", True),
+            "type": info.get("type", name),
+            "connected": info.get("connected", None),  # null = unknown
+        })
+    return channels
+
+
+def get_gateway_message_log(limit: int = 50) -> list[dict]:
+    """Get recent gateway message log from hermes logs."""
+    log_dir = HERMES_HOME / "logs"
+    if not log_dir.exists():
+        return []
+
+    messages = []
+    log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)[:3]
+
+    for lf in log_files:
+        try:
+            content = lf.read_text(errors="replace")
+            for line in content.split("
+"):
+                line = line.strip()
+                if not line:
+                    continue
+                # Filter gateway-related lines
+                lower = line.lower()
+                if any(kw in lower for kw in ["gateway", "telegram", "discord", "slack", "message", "incoming", "outgoing"]):
+                    messages.append({
+                        "timestamp": line[:19] if len(line) > 19 else "",
+                        "source": lf.name,
+                        "message": line,
+                    })
+                    if len(messages) >= limit:
+                        return messages
+        except Exception:
+            pass
+
+    return messages[:limit]
