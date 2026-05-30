@@ -42,11 +42,11 @@ from backend.routers.chat import router as chat_router
 from backend.routers.hermes import router as hermes_router
 from backend.routers.events import router as events_router
 
-# System & chat are public; hermes management requires auth; events public for plugin
-app.include_router(system_router)
-app.include_router(chat_router)
-app.include_router(hermes_router, dependencies=[Depends(verify_api_key)])
-app.include_router(events_router)
+# Public endpoints: health only. Everything else requires auth when UI_API_KEY is set.
+app.include_router(system_router)  # /api/system/* — has internal key check where needed
+app.include_router(chat_router)    # /api/chat/*
+app.include_router(hermes_router, dependencies=[Depends(verify_api_key)])  # /api/sessions, /api/skills, etc.
+app.include_router(events_router)  # plugin events — public for ingest
 
 
 @app.get("/")

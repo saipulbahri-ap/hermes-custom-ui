@@ -1,11 +1,12 @@
-"""System routes - health, version, status"""
+"""System routes - health (public), stats (protected)"""
 import time
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from backend.config import HERMES_HOME, HERMES_API_URL, HERMES_API_KEY
 from backend.services import state_db_path, count_sessions, read_config
+from backend.main import verify_api_key
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 _start = time.time()
@@ -13,6 +14,7 @@ _start = time.time()
 
 @router.get("/health")
 async def health():
+    """Public health check — no auth required."""
     api_ok = False
     try:
         headers = {"Authorization": f"Bearer {HERMES_API_KEY}"} if HERMES_API_KEY else {}
@@ -34,7 +36,7 @@ async def health():
     }
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[Depends(verify_api_key)])
 async def stats():
     cfg = read_config()
     providers_cfg = cfg.get("providers", {})
