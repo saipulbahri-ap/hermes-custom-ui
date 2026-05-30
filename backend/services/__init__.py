@@ -281,7 +281,11 @@ def list_cron_jobs() -> list[dict]:
     out, _ = cli("cron", "list")
     jobs = []
     for line in out.strip().split("\n"):
-        if not line.strip() or line.startswith("No") or line.startswith("ID"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Skip informational/help text lines
+        if any(stripped.startswith(p) for p in ("No ", "ID", "Create", "Usage", "Use ")):
             continue
         parts = line.split(None, 3)
         job = {"id": "", "name": "", "schedule": "", "status": ""}
