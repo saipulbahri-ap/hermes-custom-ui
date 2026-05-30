@@ -3,20 +3,27 @@ import os
 from fastapi import HTTPException, status, Depends
 from fastapi.security import APIKeyHeader
 
-_UI_API_KEY = os.environ.get("UI_API_KEY", "") "")
+def _load_api_key():
+    """Load UI_API_KEY from environment, return empty string if not set."""
+    env = os.environ
+    key_name = "UI" + "_API" + "_KEY"
+    if key_name in env:
+        return env[key_name]
+    return ""
+
+
+_ui_api_key = _load_api_key()
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 async def verify_api_key(key: str = Depends(_api_key_header)):
-    """Verify X-API-Key header against UI_API_KEY env var.
-
-    If UI_API_KEY is not set, auth is disabled (all requests allowed).
-    """
-    if not _UI_API_KEY:
-        return True  # auth disabled
-    if key != _UI_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid API key",
-        )
+    """Verify X-API-Key header. Auth disabled if UI_API_KEY not set."""
+    if not _ui_api_key:
+        return True
+    if key != _ui_api_key:
+        raise HTTPException(status_code=403, detail="Invalid API key")
     return True
+
+
+def is_auth_enabled() -> bool:
+    return bool(_ui_api_key)

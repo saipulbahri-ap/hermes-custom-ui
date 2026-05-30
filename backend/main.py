@@ -5,11 +5,11 @@ import sys
 # ensure backend/ is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import HOST, PORT
-from backend.auth import verify_api_key, _UI_API_KEY
+from backend.auth import verify_api_key, is_auth_enabled
 
 app = FastAPI(title="Hermes Custom UI", version="1.0.0")
 
@@ -41,8 +41,8 @@ async def root():
 @app.get("/api/auth/status")
 async def auth_status():
     return {
-        "auth_required": bool(_UI_API_KEY),
-        "key_configured": bool(_UI_API_KEY),
+        "auth_required": is_auth_enabled(),
+        "key_configured": is_auth_enabled(),
     }
 
 
