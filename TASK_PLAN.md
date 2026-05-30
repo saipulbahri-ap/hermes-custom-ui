@@ -22,8 +22,7 @@
 
 ### 1.2 Chat
 - ✅ Basic chat interface
-- ⬜ **Add:** Session selector (pick existing session to continue)
-- ⬜ **Add:** Model selector dropdown
+- ✅ Session selector (pick existing session to continue)
 - ⬜ **Add:** Streaming response (SSE/WebSocket)
 - ⬜ **Add:** Message copy button
 - ⬜ **Add:** Markdown rendering for responses
@@ -31,9 +30,9 @@
 
 ### 1.3 Sessions
 - ✅ Session list with search
-- ⬜ **Add:** Session detail page (view full message history)
-- ⬜ **Add:** Session resume (continue from last message)
-- ⬜ **Add:** Session delete
+- ✅ Session detail page (view full message history) — NEW
+- ✅ Session resume (continue from last message) — NEW
+- ✅ Session delete — NEW
 - ⬜ **Add:** Session export (JSON/Markdown)
 - ⬜ **Add:** Filter by model, date range
 - ⬜ **Add:** Pagination
@@ -41,7 +40,6 @@
 ### 1.4 Memory
 - ✅ Memory list (read from MEMORY.md)
 - ⬜ **Add:** Vector memory search (semantic search)
-- ⬜ **Add:** Memory entry detail view
 - ⬜ **Add:** Memory create/edit/delete
 - ⬜ **Add:** User profile tab
 - ⬜ **Add:** Memory import/export
@@ -49,19 +47,19 @@
 ### 1.5 Skills
 - ✅ Skill list with search & category
 - ✅ Skill detail with SKILL.md preview
-- ⬜ **Add:** Skill categories filter
 - ⬜ **Add:** Skill install from URL/repo
 - ⬜ **Add:** Skill enable/disable toggle
 - ⬜ **Add:** Skill execute/run with parameters
 
 ### 1.6 Cron Jobs
 - ✅ Cron job list
-- ⬜ **Add:** Create new cron job (form: name, schedule, prompt)
+- ✅ Create new cron job (form: name, schedule, prompt) — NEW
+- ✅ Pause/Resume cron job — NEW
+- ✅ Manual trigger (run now) — NEW
+- ✅ Delete cron job — NEW
+- ✅ Execution log per job — NEW
 - ⬜ **Add:** Edit cron job
-- ⬜ **Add:** Pause/Resume cron job
-- ⬜ **Add:** Delete cron job
 - ⬜ **Add:** Cron job execution history
-- ⬜ **Add:** Manual trigger (run now)
 
 ### 1.7 Config
 - ✅ YAML config tree editor
