@@ -1,6 +1,6 @@
 > Last updated: 2026-05-30
-> Sprint 1: ✅ Complete — tested & deployed
-> Sprint 2: 🔄 In progress
+> Sprint 1: ✅ Complete
+> Sprint 2: ✅ Complete — code ready, needs deploy
 
 ## Phase 1: Core Pages Enhancement (Existing pages — fix & improve)
 
