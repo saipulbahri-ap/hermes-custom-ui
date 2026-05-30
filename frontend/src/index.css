@@ -19,5 +19,7 @@
   .badge-yellow { @apply badge bg-yellow-900/50 text-yellow-300; }
   .badge-red { @apply badge bg-red-900/50 text-red-300; }
   .badge-gray { @apply badge bg-gray-700 text-gray-300; }
+  .badge-blue { @apply badge bg-blue-900/50 text-blue-300; }
+  .badge-purple { @apply badge bg-purple-900/50 text-purple-300; }
   .sidebar-icon { @apply w-5 h-5; }
 }

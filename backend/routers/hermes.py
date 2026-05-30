@@ -1,11 +1,13 @@
 """All Hermes management routes consolidated"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
+from pydantic import BaseModel
 
 from backend.services import (
     get_sessions, get_session_messages, search_sessions,
+    delete_session,
     list_skills, get_skill_content,
     list_memory,
-    list_cron_jobs,
+    list_cron_jobs, cron_create, cron_pause, cron_resume, cron_run, cron_delete,
     read_config, read_env, write_config,
     read_config_safe, read_env_safe,
     list_profiles, set_active_profile,
@@ -38,6 +40,22 @@ async def session_detail(session_id: str, msg_limit: int = 100):
     return {**s, "messages": msgs}
 
 
+@router.get("/sessions/{session_id}/messages")
+async def session_messages(session_id: str, limit: int = 200):
+    """Return full message history for a session."""
+    msgs = get_session_messages(session_id, limit)
+    return {"session_id": session_id, "messages": msgs, "count": len(msgs)}
+
+
+@router.delete("/sessions/{session_id}")
+async def session_delete(session_id: str):
+    """Delete a session and all its messages."""
+    result = delete_session(session_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404 if "not found" in result.get("error", "") else 500, detail=result["error"])
+    return result
+
+
 # ── Skills ──
 @router.get("/skills")
 async def skills():
@@ -62,6 +80,57 @@ async def memory(target: str = Query("memory", pattern="^(memory|user)$")):
 @router.get("/cron")
 async def cron():
     return list_cron_jobs()
+
+
+class CronCreateBody(BaseModel):
+    name: str
+    schedule: str
+    prompt: str
+
+
+@router.post("/cron/create")
+async def cron_create_endpoint(body: CronCreateBody):
+    """Create a new cron job via hermes CLI."""
+    result = cron_create(body.name, body.schedule, body.prompt)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to create cron job"))
+    return result
+
+
+@router.put("/cron/{job_id}/pause")
+async def cron_pause_endpoint(job_id: str):
+    """Pause a cron job."""
+    result = cron_pause(job_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to pause cron job"))
+    return result
+
+
+@router.put("/cron/{job_id}/resume")
+async def cron_resume_endpoint(job_id: str):
+    """Resume a paused cron job."""
+    result = cron_resume(job_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to resume cron job"))
+    return result
+
+
+@router.post("/cron/{job_id}/run")
+async def cron_run_endpoint(job_id: str):
+    """Trigger an immediate run of a cron job."""
+    result = cron_run(job_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to run cron job"))
+    return result
+
+
+@router.delete("/cron/{job_id}")
+async def cron_delete_endpoint(job_id: str):
+    """Delete a cron job."""
+    result = cron_delete(job_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to delete cron job"))
+    return result
 
 
 # ── Config ──

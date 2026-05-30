@@ -18,6 +18,7 @@ import Kanban from './pages/Kanban'
 import Logs from './pages/Logs'
 import Plugins from './pages/Plugins'
 import Live from './pages/Live'
+import SessionDetail from './pages/SessionDetail'
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/sessions" element={<Sessions />} />
+              <Route path="/sessions/:id" element={<SessionDetail />} />
               <Route path="/memory" element={<Memory />} />
               <Route path="/skills" element={<Skills />} />
               <Route path="/cron" element={<Cron />} />

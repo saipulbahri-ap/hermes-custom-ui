@@ -38,6 +38,16 @@ export const getSkills = () => api<any>('/skills')
 export const getSkill = (name: string) => api<any>(`/skills/${encodeURIComponent(name)}`)
 export const getMemory = (target?: string) => api<any>(`/memory?target=${target || 'memory'}`)
 export const getCron = () => api<any>('/cron')
+export const cronCreate = (data: { name: string; schedule: string; prompt: string }) =>
+  api<any>('/cron/create', { method: 'POST', body: JSON.stringify(data) })
+export const cronPause = (id: string) =>
+  api<any>(`/cron/${encodeURIComponent(id)}/pause`, { method: 'PUT' })
+export const cronResume = (id: string) =>
+  api<any>(`/cron/${encodeURIComponent(id)}/resume`, { method: 'PUT' })
+export const cronRun = (id: string) =>
+  api<any>(`/cron/${encodeURIComponent(id)}/run`, { method: 'POST' })
+export const cronDelete = (id: string) =>
+  api<any>(`/cron/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getConfig = () => api<any>('/config')
 export const putConfig = (data: any) => api<any>('/config', { method: 'PUT', body: JSON.stringify(data) })
 export const getProfiles = () => api<any>('/profiles')
@@ -49,3 +59,4 @@ export const getProviders = () => api<any>('/providers')
 export const getKanban = () => api<any>('/kanban')
 export const getLogs = (limit?: number) => api<any>(`/logs?limit=${limit || 100}`)
 export const getPlugins = () => api<any>('/plugins')
+export const deleteSession = (id: string) => api<any>(`/sessions/${id}`, { method: 'DELETE' })

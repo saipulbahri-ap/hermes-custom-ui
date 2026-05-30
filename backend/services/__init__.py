@@ -313,6 +313,99 @@ def _normalize_cron_job(j: dict) -> dict:
     }
 
 
+def cron_create(name: str, schedule: str, prompt: str) -> dict:
+    """Create a cron job via CLI. Returns dict with job info or error."""
+    out, code = cli("cron", "create", "--name", name, "--schedule", schedule, "--prompt", prompt)
+    if code == 0:
+        # Try to parse JSON output
+        try:
+            data = json.loads(out)
+            if isinstance(data, dict):
+                return {"ok": True, "job": _normalize_cron_job(data)}
+            if isinstance(data, list) and data:
+                return {"ok": True, "job": _normalize_cron_job(data[-1])}
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Fallback: return raw output
+        return {"ok": True, "output": out.strip()}
+    return {"ok": False, "error": out.strip() or f"exit code {code}"}
+
+
+def cron_pause(job_id: str) -> dict:
+    """Pause a cron job via CLI."""
+    out, code = cli("cron", "pause", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    # Try alternative command names
+    out, code = cli("cron", "disable", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    out, code = cli("cron", "update", job_id, "--enabled", "false")
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    return {"ok": False, "error": out.strip() or f"exit code {code}"}
+
+
+def cron_resume(job_id: str) -> dict:
+    """Resume a cron job via CLI."""
+    out, code = cli("cron", "resume", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    # Try alternative command names
+    out, code = cli("cron", "enable", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    out, code = cli("cron", "update", job_id, "--enabled", "true")
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    return {"ok": False, "error": out.strip() or f"exit code {code}"}
+
+
+def cron_run(job_id: str) -> dict:
+    """Trigger a cron job run via CLI."""
+    out, code = cli("cron", "run", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    # Try alternative: run now
+    out, code = cli("cron", "trigger", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    return {"ok": False, "error": out.strip() or f"exit code {code}"}
+
+
+def cron_delete(job_id: str) -> dict:
+    """Delete a cron job via CLI."""
+    out, code = cli("cron", "delete", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    # Try alternative command names
+    out, code = cli("cron", "remove", job_id)
+    if code == 0:
+        return {"ok": True, "output": out.strip()}
+    return {"ok": False, "error": out.strip() or f"exit code {code}"}
+
+
+def delete_session(session_id: str) -> dict:
+    """Delete a session and its messages from the state database."""
+    db = state_db_path()
+    if not db:
+        return {"ok": False, "error": "state.db not found"}
+    try:
+        conn = sqlite3.connect(str(db))
+        # Delete messages first (foreign key safety)
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        # Delete session
+        cur = conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+        deleted = cur.rowcount
+        conn.close()
+        if deleted > 0:
+            return {"ok": True, "deleted": deleted}
+        return {"ok": False, "error": f"session {session_id} not found"}
+    except sqlite3.Error as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ── Memory ──
 
 def _read_memory_entries(path: Path) -> list[dict]:

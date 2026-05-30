@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  History, Search, Clock, Trash2, MessageSquare,
+  History, Search, Clock, MessageSquare,
   ChevronRight, RefreshCw,
 } from 'lucide-react'
 import { getSessions, searchSessions, getSession } from '../lib/api'
@@ -117,9 +118,13 @@ export default function Sessions() {
               >
                 <MessageSquare className="w-5 h-5 text-gray-500 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-200 truncate">
+                  <Link
+                    to={`/sessions/${s.id}`}
+                    className="text-sm font-medium text-gray-200 truncate hover:text-hermes-400 transition-colors block"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {s.title || `Session ${s.id.slice(0, 8)}`}
-                  </p>
+                  </Link>
                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
